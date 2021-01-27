@@ -87,7 +87,7 @@ run SpaFHy spinup
 print('***  Running spinup ***')
 for k in range(0, Nspin):
     #print('step: ' + str(k))
-    forc= FORC[['doy', 'Rg', 'Par', 'T', 'Prec', 'VPD', 'CO2','U']].iloc[k]
+    forc= FORC[['doy', 'Rg', 'RH', 'Par', 'T', 'Prec', 'VPD', 'CO2','U']].iloc[k]
     
     spa.run_timestep(forc, ncf=False)
 
@@ -116,7 +116,7 @@ from index Nspin +1; the first ones are Nan's
 print('***  Running SpaFHy ***')
 for k in range(Nspin+1, Nsteps):
     print('step: ' + str(k))
-    forc= FORC[['doy', 'Rg', 'Par', 'T', 'Prec', 'VPD', 'CO2','U']].iloc[k]
+    forc= FORC[['doy', 'Rg', 'RH', 'Par', 'T', 'Prec', 'VPD', 'CO2','U']].iloc[k]
     
     spa.run_timestep(forc, ncf=ncf)
 

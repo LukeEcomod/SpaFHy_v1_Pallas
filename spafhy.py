@@ -224,6 +224,7 @@ class SpaFHy():
         prec = forc['Prec']
         co2 = forc['CO2']
         u = forc['U'] + eps
+        rh = forc['RH']
 
         # run Topmodel
         # catchment average ground water recharge [m per unit area]
@@ -232,7 +233,7 @@ class SpaFHy():
 
         # run CanopyGrid
         potinf, trfall, interc, evap, et, transpi, efloor, mbe = \
-            self.cpy.run_timestep(doy, self.dt, ta, prec, rg, par, vpd, U=u, CO2=co2,
+            self.cpy.run_timestep(doy, self.dt, ta, prec, rg, rh, par, vpd, U=u, CO2=co2,
                                   beta=self.bu.Ree, Rew=self.bu.Rew, P=101300.0)
 
         # run BucketGrid water balance

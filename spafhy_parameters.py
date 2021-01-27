@@ -48,6 +48,8 @@ def parameters():
                     'cAtten': 1.0, # attenuation coeffient for canopy longwave radiation (Montehit and Unsworth 2013 fig 8.2)
                     'RDthres': 0.001, # amount of precipitation [m] above which a day is considered cloudy (affects long wave inputs)
                     'retcap': 0.05, # maximum water rentention capacity of the snowpack
+                    'Tmin': 1.0, # threshold below which all precipitation is snow
+                    'Tmax': 0.0, # threshold above which all precipitation is water (note in between will be divided to rain and snow)
                     },
                     
             # canopy conductance
@@ -112,6 +114,7 @@ def parameters():
                        'd_nosnow': 1.0, # days since snowfall
                        'd_snow': 0.0, # days with snow on the ground
                        'Tsnow': -4.0, # snow temperature 
+                       'alb': 0, # initial albedo
                        }
             }
 
