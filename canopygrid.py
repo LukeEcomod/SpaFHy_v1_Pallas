@@ -612,6 +612,7 @@ def e_sat(T, P=101300):
     Lambda = 1e3 * (3147.5 - 2.37 * (T + NT))  # lat heat of vapor [J/kg]
     esa = 1e3 * (0.6112 * np.exp((17.67 * T) / (T + 273.16 - 29.66)))  # Pa
 
+    
     s = 17.502 * 240.97 * esa / ((240.97 + T) ** 2)
     g = P * cp / (0.622 * Lambda)
     return esa, s, g
@@ -639,8 +640,9 @@ def penman_monteith(AE, D, T, Gs, Ga, P=101300.0, units='W'):
     Mw = 18e-3  # kg mol-1
     _, s, g = e_sat(T, P)  # slope of sat. vapor pressure, psycrom const
     L = 1e3 * (3147.5 - 2.37 * (T + 273.15))
-
+    
     x = (s * AE + rho * cp * Ga * D) / (s + g * (1.0 + Ga / Gs))  # Wm-2
+    
 
     if units == 'mm':
         x = x / L  # kgm-2s-1 = mms-1

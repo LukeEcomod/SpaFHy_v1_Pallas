@@ -14,14 +14,14 @@ Phenology is common to all, LAI-cycle common to all deciduous
 def parameters():
     
     pgen = {'catchment_id': '1',
-            'gis_folder': r'C:\SpaFHy_v1_Pallas\data\C3',
-            'forcing_file': r'C:\SpaFHy_v1_Pallas\data\Weather_C3.csv',
-            'runoff_file': r'C:\SpaFHy_v1_Pallas\data\Runoffs_SVEcatchments_mmd.csv', #
+            'gis_folder': r'C:\SpaFHy_v1_Pallas\data\C16',
+            'forcing_file': r'C:\SpaFHy_v1_Pallas\data\Weather_C3_Kenttarova.csv',
+            'runoff_file': r'C:\SpaFHy_v1_Pallas\data\Runoffs1d_SVEcatchments_mmd.csv', #
             'ncf_file': r'C3.nc',
             'results_folder': r'C:\SpaFHy_v1_Pallas\Results',
-            'start_date': '2005-01-01',
-            'end_date': '2015-12-31',
-            'spinup_end': '2005-12-31',
+            'start_date': '2013-01-01',
+            'end_date': '2019-10-01',
+            'spinup_end': '2013-12-31',
             'dt': 86400.0,
             'spatial_cpy': True,
             'spatial_soil': True     
@@ -39,10 +39,15 @@ def parameters():
                         'wmaxsnow': 4.5, # storage capacity for snow (mm/LAI),
                         },
             'snow': {
-                    # degree-day snow model
+                    # degree-day snow model / energy balance
                     'kmelt': 2.8934e-05, # melt coefficient in open (mm/s)
                     'kfreeze': 5.79e-6, # freezing coefficient (mm/s)
-                    'r': 0.05 # maximum fraction of liquid in snow (-)
+                    'r': 0.05, # maximum fraction of liquid in snow (-)
+                    'albpow': 1.0, # parameter lowering albedo for aging snow 
+                    'albground': 0.21, # albedo for snowfree ground
+                    'cAtten': 1.0, # attenuation coeffient for canopy longwave radiation (Montehit and Unsworth 2013 fig 8.2)
+                    'RDthres': 0.001, # amount of precipitation [m] above which a day is considered cloudy (affects long wave inputs)
+                    'retcap': 0.05, # maximum water rentention capacity of the snowpack
                     },
                     
             # canopy conductance
@@ -102,6 +107,11 @@ def parameters():
                        #initial state of canopy storage [mm] and snow water equivalent [mm]
                        'w': 0.0, # canopy storage mm
                        'swe': 0.0, # snow water equivalent mm
+                       'Wice': 0.2, # ice in snowpack
+                       'Wliq': 0.0, # liquid water in snowpack
+                       'd_nosnow': 1.0, # days since snowfall
+                       'd_snow': 0.0, # days with snow on the ground
+                       'Tsnow': -4.0, # snow temperature 
                        }
             }
 
@@ -112,10 +122,10 @@ def parameters():
            'poros': 0.43, # porosity (-)
            'fc': 0.33, # field capacity (-)
            'wp': 0.13,	 # wilting point (-)
-           'ksat': 2.0e-6, 
+           'ksat': 2.0e-6, # saturated hydraulic conductivity
            'beta': 4.7,
            #organic (moss) layer
-           'org_depth': 0.04, # depth of organic top layer (m)
+           'org_depth': 0.05, # depth of organic top layer (m)
            'org_poros': 0.9, # porosity (-)
            'org_fc': 0.3, # field capacity (-)
            'org_rw': 0.24, # critical vol. moisture content (-) for decreasing phase in Ef
@@ -128,7 +138,7 @@ def parameters():
     
     # TOPMODEL
     ptop = {'dt': 86400.0, # timestep (s)
-            'm': 0.026, # scaling depth (m)
+            'm': 0.023, # scaling depth (m)
             'ko': 0.001, # transmissivity parameter (ms-1)
             'twi_cutoff': 99.5,  # cutoff of cumulative twi distribution (%)
             'so': 0.05 # initial saturation deficit (m)
@@ -162,7 +172,7 @@ def soil_properties():
                   'alpha': 0.024,
                   'beta': 4.7,
                   'fc': 0.33,
-                  'ksat': 1e-05,
+                  'ksat': 4e-06,
                   'n': 1.2,
                   'poros': 0.43,
                   'soil_id': 2.0,

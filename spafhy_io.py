@@ -67,7 +67,7 @@ def read_CageDaily(filepath):
 
 
 """ ********* Get Forcing data: SVE catchments ****** """
-
+'''
 def read_FMI_weather(ID, start_date, end_date, sourcefile, CO2=380.0):
     """
     reads FMI interpolated daily weather data from file
@@ -149,6 +149,89 @@ def read_FMI_weather(ID, start_date, end_date, sourcefile, CO2=380.0):
     fmi['CO2'] = float(CO2)
     
     return fmi
+'''
+
+''' FORCING FROM FMI OBSERVATIONS '''
+
+def read_FMI_weather(ID, start_date, end_date, sourcefile, CO2=380.0):
+    """
+    reads FMI OBSERVED daily weather data from file
+    IN:
+        ID - sve catchment ID. set ID=0 if all data wanted
+        start_date - 'yyyy-mm-dd'
+        end_date - 'yyyy-mm-dd'
+        sourcefile - optional
+        CO2 - atm. CO2 concentration (float), optional
+    OUT:
+        fmi - pd.dataframe with datetimeindex
+            fmi columns:['ID','Kunta','aika','lon','lat','T','Tmax','Tmin',
+                         'Prec','Rg','h2o','dds','Prec_a','Par',
+                         'RH','esa','VPD','doy']
+            units: T, Tmin, Tmax, dds[degC], VPD, h2o,esa[kPa],
+            Prec, Prec_a[mm], Rg,Par[Wm-2],lon,lat[deg]
+    """
+    
+    # OmaTunniste;OmaItä;OmaPohjoinen;Kunta;siteid;vuosi;kk;paiva;longitude;latitude;t_mean;t_max;t_min;
+    # rainfall;radiation;hpa;lamposumma_v;rainfall_v;lamposumma;lamposumma_cum
+    # -site number
+    # -date (yyyy mm dd)
+    # -latitude (in KKJ coordinates, metres)
+    # -longitude (in KKJ coordinates, metres)
+    # -T_mean (degrees celcius)
+    # -T_max (degrees celcius)
+    # -T_min (degrees celcius)
+    # -rainfall (mm)
+    # -global radiation (per day in kJ/m2)
+    # -H2O partial pressure (hPa)
+
+    sourcefile = os.path.join(sourcefile)
+    print(sourcefile)
+    ID = int(ID)
+
+    # import forcing data
+    fmi = pd.read_csv(sourcefile, sep=';', header='infer', 
+                      parse_dates=['time'],encoding="ISO-8859-1")
+    
+    time = pd.to_datetime(fmi['time'], format='%Y%m%d')
+
+    fmi.index = time
+    fmi = fmi.rename(columns={'t_mean': 'T', 't_max': 'Tmax',
+                              't_min': 'Tmin', 'rainfall': 'Prec',
+                              'radiation': 'Rg', 'hpa': 'h2o', 'lamposumma_v': 'dds',
+                              'rainfall_v': 'Prec_a', 'rh': 'RH', 'wind_speed': 'U'})
+    
+    # get desired period and catchment
+    fmi = fmi[(fmi.index >= start_date) & (fmi.index <= end_date)]
+    if ID > 0:
+        fmi = fmi[fmi['ID'] == ID]
+    
+    fmi['h2o'] = 1e-1*fmi['h2o']  # hPa-->kPa
+    #fmi['Rg'] = 1e3 / 86400.0*fmi['Rg']  # kJ/m2/d-1 to Wm-2
+    fmi['Par'] = 0.5*fmi['Rg']
+
+    # saturated vapor pressure
+    esa = 0.6112*np.exp((17.67*fmi['T']) / (fmi['T'] + 273.16 - 29.66))  # kPa
+    vpd = esa - fmi['h2o']  # kPa
+    vpd[vpd < 0] = 0.0
+    #rh = 100.0*fmi['h2o'] / esa
+    #rh[rh < 0] = 0.0
+    #rh[rh > 100] = 100.0
+
+    #fmi['RH'] = rh
+    fmi['esa'] = esa
+    fmi['VPD'] = vpd
+
+    fmi['doy'] = fmi.index.dayofyear
+    fmi = fmi.drop(['time'], axis=1)
+    # replace nan's in prec with 0.0
+    fmi.loc[fmi['Prec'].isna(), 'Prec'] = 0.0
+ 
+    
+    # add CO2 concentration to dataframe
+    fmi['CO2'] = float(CO2)
+    
+    return fmi
+
 
 
 """ ************ Get Runoffs from SVE catchments ******* """
@@ -295,11 +378,13 @@ def read_catchment_data(ID, fpath, plotgrids=False, plotdistr=False):
     
     """ stand data (MNFI)"""
     # stand volume [m3ha-1]
-    vol, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'vol.dat'), setnans=False)
-    vol = vol*cmask
+    if os.path.exists(os.path.join(fpath, 'vol.dat')):
+        vol, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'vol.dat'), setnans=False)
+        vol = vol*cmask
     # basal area
-    ba, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'ba.dat'), setnans=False)
-    ba = ba*cmask
+    if os.path.exists(os.path.join(fpath, 'ba.dat')):
+        ba, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'ba.dat'), setnans=False)
+        ba = ba*cmask
 
     # tree height [m]
     hc, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'hc.dat'))
@@ -308,7 +393,8 @@ def read_catchment_data(ID, fpath, plotgrids=False, plotdistr=False):
     cf, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'cf.dat'))
 
     # stand age [yrs]
-    age, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'age.dat'))
+    if os.path.exists(os.path.join(fpath, 'age.dat')):
+        age, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'age.dat'))
 
     # leaf area indices
     LAI_pine, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'LAI_pine.dat'))
@@ -324,8 +410,18 @@ def read_catchment_data(ID, fpath, plotgrids=False, plotdistr=False):
 #    LAI_spruce = 1e-3*bmleaf_spruce*SLA['spruce']
 #    LAI_decid = 1e-3*bmleaf_decid*SLA['decid']
     
-
     # dict of all rasters
+    gis = {'cmask': cmask, 'dem': dem, 'flowacc': flowacc, 'slope': slope,
+           'twi': twi, 'soilclass': soilclass, 'stream': stream,
+           'LAI_pine': LAI_pine, 'LAI_spruce': LAI_spruce,
+           'LAI_conif': LAI_pine + LAI_spruce,
+           'LAI_decid': LAI_decid, 'hc': hc,
+           'cf': cf, 'cellsize': cellsize,
+           'info': info, 'lat0': lat0, 'lon0': lon0, 'loc': loc
+           }
+
+
+    '''# dict of all rasters
     gis = {'cmask': cmask, 'dem': dem, 'flowacc': flowacc, 'slope': slope,
            'twi': twi, 'soilclass': soilclass, 'stream': stream,
            'LAI_pine': LAI_pine, 'LAI_spruce': LAI_spruce,
@@ -333,7 +429,7 @@ def read_catchment_data(ID, fpath, plotgrids=False, plotdistr=False):
            'LAI_decid': LAI_decid, 'ba': ba, 'hc': hc,
            'vol': vol, 'cf': cf, 'age': age, 'cellsize': cellsize,
            'info': info, 'lat0': lat0, 'lon0': lon0, 'loc': loc
-           }
+           }'''
     
     if plotgrids is True:
         #%matplotlib qt
@@ -1389,7 +1485,7 @@ def vdataQuery(alue, alku, loppu, kysely, fname=None):
     g.close()
     
     #read  'tmp.txt' back to dataframe
-    if kysely is 'annual': #annual query has different format
+    if kysely == 'annual': #annual query has different format
         dat=pd.read_csv(ou)
         f=dat['v_alue_metodi']
         yr=[]; alue=[]; mtd=[]        
@@ -1406,7 +1502,7 @@ def vdataQuery(alue, alku, loppu, kysely, fname=None):
         dat.index=dat.index.to_datetime() #convert to datetime
     
     
-    if kysely is 'wlevel': #manipulate column names
+    if kysely == 'wlevel': #manipulate column names
         cols=list(dat.columns.values)
         h=[]  
         for item in cols:

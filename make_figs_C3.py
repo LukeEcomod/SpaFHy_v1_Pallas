@@ -23,6 +23,12 @@ import matplotlib.cm as mplcm
 import pickle
 from netCDF4 import Dataset #, date2num
 
+from datetime import date
+
+
+saveplots = True
+today = date.today()
+
 # import model 
 # import spafhy
 
@@ -87,7 +93,7 @@ ET = TR + EF + IE
 #--------
 
 fig = plt.figure()
-fig.set_size_inches(8.0, 10.0)
+fig.set_size_inches(10.0, 18.0)
 
 # maps to lhs of the figure
 
@@ -129,7 +135,7 @@ cb1.ax.set_yticklabels(['coarse','med','peat'])
 
 ax = plt.gca()
 ax.grid(linestyle='--', alpha=0.5)
-plt.xlim([0, 9])
+plt.xlim([0, 5])
 plt.ylim([0.2, 0.7])
 #plt.ylabel('$\overline{ET}$/$\overline{P}$ (-)', labelpad=-1);
 
@@ -140,7 +146,7 @@ y = np.sum(IE, axis=0) / P
 sc = plt.scatter(x, y, c=rr, vmin=0, vmax=0.6, s=10, alpha=0.5, cmap='coolwarm')
 cb = plt.colorbar(sc, ticks = [0.0, 0.20, 0.40, 0.60])
 cb.set_label('LAI$_d$ / LAI', rotation=90, fontsize=9)
-plt.xlim([0, 9])
+plt.xlim([0, 5])
 plt.ylim([0, 0.3])
 #plt.ylabel('$\overline{E}$/$\overline{P}$ (-)', labelpad=-1);
 ax = plt.gca()
@@ -157,7 +163,7 @@ cb.set_label('LAI$_d$ / LAI', rotation=90, fontsize=9)
 plt.xlim([0, 9])
 ax = plt.gca()
 ax.grid(linestyle='--', alpha=0.5)
-plt.xlim([0, 9])
+plt.xlim([0, 5])
 plt.ylim([0, 0.4])
 #plt.ylabel('$\overline{T_r}$/$\overline{P}$ (-)', labelpad=-2);
 
@@ -169,17 +175,17 @@ y = np.sum(EF, axis=0) / P
 sc = plt.scatter(x, y, c=rr, s=10, alpha=0.5, cmap='coolwarm_r')
 cb = plt.colorbar(sc)
 cb.set_label('TWI', rotation=90, fontsize=9)
-plt.xlim([0, 9])
+plt.xlim([0, 5])
 plt.ylim([0, 0.3])
 #plt.ylabel('$\overline{E_f}$/$\overline{P}$ (-)', labelpad=-2)
 plt.xlabel('LAI (m$^2$m$^{-2}$)')
 ax = plt.gca()
 ax.grid(linestyle='--', alpha=0.5)
-plt.xlim([0, 9])
+plt.xlim([0, 5])
 plt.ylim([0, 0.3])
 
-plt.savefig('ch3_ETvariability.png', dpi=660)
-# plt.savefig('ch3_ETvariability.pdf')
+if saveplots == True:
+    plt.savefig(f'ET_variability_{today}.pdf')
 
 #%% plot ET partitioning as function of LAI
 
@@ -189,7 +195,7 @@ t_ef = np.ravel(np.sum(EF, axis=0))
 t_e = np.ravel(np.sum(IE, axis=0))
 
 fig = plt.figure()
-fig.set_size_inches(4.5, 4.5)
+fig.set_size_inches(7, 6)
 
 x = np.ravel(LAId + LAIc)
 cm = plt.get_cmap('Blues')
@@ -198,31 +204,32 @@ cm = plt.get_cmap('Blues')
 nyrs = len(np.unique(Qmeas[ix:].index.year))
 
 plt.subplot(211) # mean annual ET and its components
-plt.plot(x, t_et/nyrs, 'o', color='k', markersize=4, alpha=0.5, label='ET')
-plt.plot(x, t_e/nyrs, 'o', color=cm(0.4), markersize=4, alpha=0.4, label='E')
-plt.plot(x, t_tr/nyrs, 'o', color=cm(0.7), markersize=4, alpha=0.7, label='T$_r$')
-plt.plot(x, t_ef/nyrs, 'o', color=cm(1.0), markersize=4, alpha=0.8, label='E$_f$')
+plt.plot(x, t_et/nyrs, 'o', color='k', markersize=2, alpha=0.5, label='ET')
+plt.plot(x, t_e/nyrs, 'o', color=cm(0.4), markersize=2, alpha=0.4, label='E')
+plt.plot(x, t_tr/nyrs, 'o', color=cm(0.7), markersize=2, alpha=0.7, label='T$_r$')
+plt.plot(x, t_ef/nyrs, 'o', color=cm(1.0), markersize=2, alpha=0.8, label='E$_f$')
 plt.ylabel('[mm / year]')
-plt.legend(fontsize=10, frameon=False)
+plt.legend(fontsize=10, frameon=False, bbox_to_anchor=(1, 1), loc='upper left')
+plt.xlim([0, 5])
+
 
 plt.subplot(212)
 plt.plot(x, t_e/t_et, 'o', color=cm(0.4), markersize=4, alpha=0.4, label='E')
 plt.plot(x, t_tr/t_et, 'o', color=cm(0.7), markersize=4, alpha=0.7, label='T$_r$')
 plt.plot(x, t_ef/t_et, 'o', color=cm(1.0), markersize=4, alpha=0.8, label='E$_f$')
-#plt.legend(fontsize=10, frameon=False)
+plt.legend(fontsize=10, frameon=False, bbox_to_anchor=(1, 1), loc='upper left')
 plt.ylabel('contribution to ET (-)', fontsize=10)
 plt.xlabel('LAI (m$^2$m$^{-2}$)', fontsize=10, labelpad=-3)
 ax = plt.gca()
 ax.grid(linestyle='--', alpha=0.5)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
-plt.xlim([0, 9])
+plt.xlim([0, 5])
 plt.ylim([0, 1.0])
 
 
-plt.savefig(r'ch3_ETpartitioning.png', dpi=660)
-# plt.savefig(r'ch3_ETpartitioning.pdf')
-
+if saveplots == True:
+    plt.savefig(f'ET_partitioning_{today}.pdf')
 
 #%% FIG. 10: maximum snow water equivalent SWE
 
@@ -251,25 +258,51 @@ cm = plt.get_cmap('coolwarm')
 plt.plot(laiw, yy/max(yy), 'o', color=cm(0.1), markersize=5, alpha=0.2)
 plt.title('relative SWE (-)', fontsize=10)
 plt.xlabel('winter LAI  (m$^2$m$^{-2}$)', fontsize=10, labelpad=-30)
-plt.xlim([0, 7.5])
-plt.ylim([0.75, 1.02])
+plt.xlim([0, 5])
+plt.ylim([0.85, 1.02])
 
 ax = plt.gca()
 ax.yaxis.set_label_position("right")
 #ax.yaxis.tick_right()
-ax.set_xticks([0,1,2,3,4,5,6,7])
+ax.set_xticks([0,1,2,3,4,5])
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 #ax.set_alpha(0.5)
 ax.grid(linestyle='--', alpha=0.5)
 
-plt.savefig(r'ch3_swe_variability.png', dpi=660)
-plt.savefig(r'ch3_swe_variability.pdf')
+if saveplots == True:
+    plt.savefig(f'swe_variability_{today}.pdf')
 
 
 #%% Fig 6: streamflow
-f0 = int(np.where(tvec == '2014-01-01')[0])
-f1 = int(np.where(tvec == '2015-12-31')[0])
+import pandas as pd
+
+
+SWE_m = pd.read_csv('C:\SpaFHy_v1_Pallas\data\SWE_survey_2018-02-22_2020-06-04.txt', 
+                    skiprows=5, sep=';', parse_dates = ['date'], encoding='iso-8859-1')
+
+start = '2014-01-01'
+end = '2019-09-01'
+
+f0 = int(np.where(tvec == start)[0])
+f1 = int(np.where(tvec == end)[0])
+
+Qt = 1e3*np.array(tres['Qt'])[f0:f1] # modeled streamflow
+Qm = Qmeas[(Qmeas.index >= start) & (Qmeas.index < end) ]
+
+
+metrics = False
+
+if metrics == True:
+    mse = round((((Qt[~np.isnan(Qm)] - Qm[~np.isnan(Qm)])**2) / len(Qm[~np.isnan(Qm)])).sum(), 2)
+    me = round((Qm[~np.isnan(Qm)] - Qt[~np.isnan(Qm)]).sum() / len(Qm[~np.isnan(Qm)]), 2)
+    nse = round(1 - ((Qm[~np.isnan(Qm)] - Qt[~np.isnan(Qm)])**2).sum() / (((Qm[~np.isnan(Qm)] - Qm[~np.isnan(Qm)].mean())**2).sum()), 2)
+
+
+f0 = int(np.where(tvec == start)[0])
+f1 = int(np.where(tvec == end)[0])
+
+SWE_m = SWE_m.loc[(SWE_m['date'] >= start) & (SWE_m['date'] <= end)]
 
 tvec0 = tvec[f0:f1]
 Prec = FORC['Prec'].iloc[f0:f1] # precipitation
@@ -283,8 +316,6 @@ a = np.nansum(swe, axis=1)
 swe = a / len(f)
 max_swe = max(swe)
 
-Qt = 1e3*np.array(tres['Qt'])[f0:f1] # modeled streamflow
-
 # rootzone water storage; seek catchment maximum and minimum timing
 a = np.nansum(Wliq, axis=1)
 a = np.nansum(a, axis=1)
@@ -292,35 +323,41 @@ a = np.nansum(a, axis=1)
 ix_slow = int(np.where(a == np.nanmin(a))[0])
 ix_shi = int(np.where(a == np.nanmax(a))[0])
 
-Qm = Qmeas[(Qmeas.index >='2014-01-01') & (Qmeas.index <'2015-12-31') ]
-
 fig1, ax = plt.subplots()
 fig1.set_size_inches(6.5, 4.5)
 
 
-ax.plot(tvec0, Qm, 'k.', tvec0, Qt, 'r-', linewidth=1)
+ax.plot(tvec0, Qm, 'g:', tvec0, Qt, 'r-', linewidth=1)
 ax.plot(tvec0[ix_slow], -0.5, marker='o', mec='k', mfc='g', alpha=0.7, ms=8.0)
 ax.plot(tvec0[ix_shi], -0.5, marker='o', mec='k', mfc='b', alpha=0.7, ms=8.0)
+ax.set_ylim(-1, 12)
+ax.legend(['measured', 'modeled'], bbox_to_anchor =(0.76, 1.15), ncol = 2) 
+if metrics == True:
+    ax.text(pd.to_datetime('2013-12-20'),13.5, f'NSE = {nse} ')
+    ax.text(pd.to_datetime('2013-12-20'),12.5, f'ME = {me} ')
+    ax.text(pd.to_datetime('2018-12-20'),13.5, f'MSE = {mse} ')
+
 #ax.set_xlim(['2012-01-01', '2014-01-01'])
 ax.set_ylabel(r'$\langle Q_f \rangle$ (mm d$^{-1}$)')
 ax2=ax.twinx()   
 ax2.bar(tvec0, 3600*24.0*Prec, color='k', width=1)
 ax2.plot(tvec0, swe / 10.0, 'b-', linewidth=1.5)
+ax2.plot(SWE_m['date'], SWE_m['SWE']/10, 'k.')
 # ax2.plot(tvec0, 20*swe, 'r--', linewidth=1)
-ax2.set_ylabel(r'P (mm d$^{-1}$) & 0.1 x $\langle SWE \rangle$ (mm)'); plt.ylim([0, 50])
+ax2.set_ylabel(r'P (mm d$^{-1}$) & 0.1 x $\langle SWE \rangle$ (mm)'); plt.ylim([0, 100])
 ax2.invert_yaxis()
 #plt.xticks(rotation=30)        
 for tick in ax.get_xticklabels():
         tick.set_rotation(30)
 
-plt.savefig(r'ch3_discharge_timeseries.png', dpi=660)
-#plt.savefig(r'ch3_discharge_timeseries.pdf')
+if saveplots == True:
+    plt.savefig(f'discharge_timeseries_{today}.pdf')
 
 #%% Fig 8: snapshots of soil moisture 
 
 # select hydrologically contrasting years 2012 and 2013 for example
-f0 = int(np.where(tvec == '2012-01-01')[0])
-f1 = int(np.where(tvec == '2014-01-01')[0])
+f0 = int(np.where(tvec == '2014-01-01')[0])
+f1 = int(np.where(tvec == '2018-12-31')[0])
 
 tvec0 = tvec[f0:f1]
 Qt = 1e3*np.array(tres['Qt'])[f0:f1] # modeled streamflow mm/d
@@ -340,7 +377,7 @@ s_hi = spa._to_grid(s_hi)
 s_low = spa._to_grid(s_low)
 
 fig = plt.figure()
-fig.set_size_inches(8.0, 4.0)
+fig.set_size_inches(6.0, 4.0)
 
 plt.subplot(221)
 sns.heatmap(Wliq[ix_slow,:,:], cmap='RdBu',cbar=True, vmin=0.1, vmax=0.9, 
@@ -365,8 +402,8 @@ plt.subplot(224)
 sns.heatmap(s_hi, cmap='RdBu_r',cbar=True, vmin=0.0, vmax=180, xticklabels=False, yticklabels=False);
 plt.xlabel('S (mm)', fontsize=10)
 
-plt.savefig('ch3_moisture.png', dpi=660)
-#plt.savefig('ch3_moisture.pdf')
+if saveplots == True:
+    plt.savefig('soil_moisture.pdf')
 
 # soil moisture as function of LAI in dry period
 plt.figure()
@@ -377,8 +414,8 @@ plt.xlabel('LAI [m2 m-2]')
 plt.ylabel('soil moisture [m3 m-3]')
 
 #%% Extract data for analysis of soil moisture variability
-f0 = int(np.where(tvec == '2012-01-01')[0])
-f1 = int(np.where(tvec == '2014-01-01')[0])
+f0 = int(np.where(tvec == '2014-01-01')[0])
+f1 = int(np.where(tvec == '2018-12-31')[0])
 
 tvec0 = tvec[f0:f1]
 mo = np.array(tvec0.month)
@@ -396,6 +433,7 @@ LAI = LAIc + LAId
 lai0 = LAI[f,g]
 
 #%% soil moisture variability
+'''
 from soil_moisture_budget import time_stability
 
 
@@ -493,8 +531,8 @@ ax[1,1].yaxis.set_ticks_position('right')
 ax[1,1].set_ylabel(r'$\sigma_{\theta}$', fontsize=12)
 ax[1,1].set_xlim([0.1, 0.5])
 
-plt.savefig('ch3_moisture_statistics.png', dpi=660)
-plt.savefig('ch3_moisture_statistics.pdf')
+#plt.savefig('ch3_moisture_statistics.png', dpi=660)
+#plt.savefig('ch3_moisture_statistics.pdf')
 
 ##%% soil moisture variability - more figures
 #
@@ -601,4 +639,114 @@ plt.savefig('ch3_moisture_statistics.pdf')
 #plt.subplot(224); 
 #plt.xlabel(r'TWI'); plt.ylabel('RCI')
 #cb4 = plt.colorbar(); cb4.ax.set_ylabel('LAI')
+'''
+
+#%%
+
+import pandas as pd
+from spafhy_io import read_AsciiGrid
+
+kenttarova, _, _, _, _ = read_AsciiGrid(r'C:\PALLAS_RAW_DATA\Lompolonjanka\16b\sve_kenttarova_soilmoist.asc')
+kenttarova_loc = np.where(kenttarova == 0)
+kenttarova_loc = list([int(kenttarova_loc[0]), int(kenttarova_loc[1])])
+sve_gtk_pintamaa, _, _, _, _ = read_AsciiGrid(r'C:\SpaFHy_v1_Pallas\data\C16\soilclass.dat')
+
+
+# soil moisture at Kenttarova
+folder = r'C:\SpaFHy_v1_Pallas\data'
+soil_file = 'soilscouts_s3_s5_s18.csv'
+fp = os.path.join(folder, soil_file)
+Wliqm = pd.read_csv(fp, sep=';', date_parser=['time'])
+soil2 = np.where(gis['soilclass'] == 2)
+
+start = '2018-05-25'
+end = '2019-08-31'
+start_ind = int(np.where(tvec == start)[0])
+end_ind = int(np.where(tvec == end)[0])
+
+Wliqm['time'] = pd.to_datetime(Wliqm['time'])
+Wliq = np.array(bres['Wliq'])[start_ind:end_ind+1,:,:]
+
+#temp
+Wliqmean = np.array(bres['Wliq'])[start_ind:end_ind+1,soil2[0],soil2[1]]
+Wliqmean = np.nanmean(Wliqmean, axis=(1))
+##
+
+
+Wliqt = pd.DataFrame()
+Wliqt['time'] = pd.date_range('2018-05-25', '2019-08-31')
+Wliqt['vwc'] = Wliq[:, kenttarova_loc[0], kenttarova_loc[1]]
+Wliqt = Wliqt.loc[(Wliqt['time'] >= start) & (Wliqt['time'] <= end)]
+Wliqt.index = Wliqt['time']
+    
+Wliqm = Wliqm.loc[(Wliqm['time'] >= start) & (Wliqm['time'] <= end)]
+Wliqm.index = Wliqm['time']
+
+soil_moist = pd.DataFrame()
+soil_moist['time'] = Wliqm['time']
+soil_moist.index = soil_moist['time']
+soil_moist[['s3', 's5', 's18']] = Wliqm[['s3', 's5', 's18']]
+soil_moist['model'] = Wliqt['vwc']
+
+Prec = FORC['Prec']
+Prec_W = Prec.loc[(Prec.index >= start) & (Prec.index <= end)]
+
+
+fig1, ax = plt.subplots()
+fig1.set_size_inches(10, 4.5)
+
+ax.plot(soil_moist['time'], soil_moist['s3'], marker='', color='black', linewidth=1)
+ax.plot(soil_moist['time'], soil_moist['s18'], marker='', color='0.5', linewidth=1)
+#ax.plot(soil_moist['time'], soil_moist['model'], marker='', color='red', linewidth=1)
+ax.plot(soil_moist['time'], Wliqmean, marker='', color='red', linewidth=1)
+ax.set_ylim(0,0.50)
+ax.set_ylabel('Volumetric water content')
+ax.set_title('Modeled and measured volumetric water content at Kenttärova', y=1.15)
+for tick in ax.get_xticklabels():
+        tick.set_rotation(30)
+ax.legend(['s3 = -0.05m', 's18 = -0.30m', 'modeled'], bbox_to_anchor =(0.75, 1.15), ncol = 3)
+ax2=ax.twinx()   
+ax2.bar(Prec_W.index, 3600*24.0*Prec_W, color='blue', width=1)
+ax2.set_ylabel(r'P (mm d$^{-1}$)')
+ax2.set_ylim([0, 50])
+ax2.invert_yaxis()
+
+if saveplots == True:
+    plt.savefig(f'soilmoist_kenttarova_{today}.pdf')
+
+
+#%%
+
+# Water balance check
+
+# Year: P - ET - Q = dS (dS = 0)
+
+WB = pd.DataFrame()
+
+yPrec = Prec.resample('Y').sum() * 3600 * 24 # sum of mm/d
+#yPrec = yPrec[1:6:,]
+
+yQ = Qmeas.resample('Y').sum() # sum of mm/d
+#yQ = yQ[1:6:,]
+
+WB['P'] = yPrec
+WB['Q'] = yQ
+WB['ET'] = None
+WB.index = yQ.index.year
+
+years = WB.index
+
+
+for i in range(len(years)):
+    year = years[i]
+    ixstart = np.where(FORC.index.year == years[i])[0][0]
+    ixend = np.where(FORC.index.year == years[i])[0][0]+365
+    ET = np.array(cres['ET'][ixstart:ixend, :, :])  # transpi
+    t_et = np.ravel(np.sum(ET, axis=0))
+    WB.loc[years[i], 'ET'] = np.nanmean(t_et)
+    
+WB['P-Q-ET'] = WB['P'] - WB['Q'] - WB['ET']
+
+
+
 

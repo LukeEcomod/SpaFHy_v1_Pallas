@@ -42,6 +42,12 @@ gisdata = read_catchment_data(pgen['catchment_id'], fpath=pgen['gis_folder'],
 gisdata['LAI_grass'] = 0.5 * gisdata['LAI_decid']
 gisdata['LAI_shrub'] = 0.1 * gisdata['LAI_conif']
 
+
+# put this in spafhy_io or spafhy_test_gisinputs16b
+gisdata['LAI_conif'][gisdata['LAI_conif'] == 0] = 0.01
+gisdata['LAI_decid'][gisdata['LAI_decid'] == 0] = 0.01
+
+
 # initialize SpaFHy
 spa, ncf, ncf_file = spafhy.initialize(pgen, pcpy, pbu, ptop, psoil, gisdata,
                                        ncf=True,
