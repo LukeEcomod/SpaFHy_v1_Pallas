@@ -259,7 +259,7 @@ plt.plot(laiw, yy/max(yy), 'o', color=cm(0.1), markersize=5, alpha=0.2)
 plt.title('relative SWE (-)', fontsize=10)
 plt.xlabel('winter LAI  (m$^2$m$^{-2}$)', fontsize=10, labelpad=-30)
 plt.xlim([0, 5])
-plt.ylim([0.85, 1.02])
+plt.ylim([0.5, 1.02])
 
 ax = plt.gca()
 ax.yaxis.set_label_position("right")
@@ -281,8 +281,8 @@ import pandas as pd
 SWE_m = pd.read_csv('C:\SpaFHy_v1_Pallas\data\SWE_survey_2018-02-22_2020-06-04.txt', 
                     skiprows=5, sep=';', parse_dates = ['date'], encoding='iso-8859-1')
 
-start = '2014-01-01'
-end = '2019-09-01'
+start = '2019-06-14'
+end = '2019-06-16'
 
 f0 = int(np.where(tvec == start)[0])
 f1 = int(np.where(tvec == end)[0])
@@ -356,8 +356,8 @@ if saveplots == True:
 #%% Fig 8: snapshots of soil moisture 
 
 # select hydrologically contrasting years 2012 and 2013 for example
-f0 = int(np.where(tvec == '2014-01-01')[0])
-f1 = int(np.where(tvec == '2018-12-31')[0])
+f0 = int(np.where(tvec == '2019-06-14')[0])
+f1 = int(np.where(tvec == '2018-06-16')[0])
 
 tvec0 = tvec[f0:f1]
 Qt = 1e3*np.array(tres['Qt'])[f0:f1] # modeled streamflow mm/d
@@ -403,7 +403,7 @@ sns.heatmap(s_hi, cmap='RdBu_r',cbar=True, vmin=0.0, vmax=180, xticklabels=False
 plt.xlabel('S (mm)', fontsize=10)
 
 if saveplots == True:
-    plt.savefig('soil_moisture.pdf')
+    plt.savefig(f'soil_moisture_{today}.pdf')
 
 # soil moisture as function of LAI in dry period
 plt.figure()
@@ -412,6 +412,27 @@ y = Wliq[ix_slow, :, :]
 plt.plot(x, y, 'o');
 plt.xlabel('LAI [m2 m-2]')
 plt.ylabel('soil moisture [m3 m-3]')
+
+
+#%% snapshots of soil moisture from a specific day
+
+x0 = int(np.where(tvec == '2019-06-15')[0])
+Wliq = np.array(bres['Wliq'])[x0,:,:] # root zone moisture m3m-3
+S = np.array(tres['S'])[x0]  # saturation deficit 
+
+fig = plt.figure()
+fig.set_size_inches(9.0, 6.0)
+
+plt.subplot(221)
+sns.heatmap(Wliq[:,:], cmap='twilight',cbar=True, vmin=0.1, vmax=0.9, 
+            xticklabels=False, yticklabels=False);
+tt = tvec[x0]
+tt = tt.strftime('%Y-%m-%d')
+plt.title(tt, fontsize=10)
+plt.xlabel('$\\theta$ (m$^3$m$^{-3}$)', fontsize=10)
+ 
+plt.savefig(f'discharge_timeseries_{today}.pdf')
+
 
 #%% Extract data for analysis of soil moisture variability
 f0 = int(np.where(tvec == '2014-01-01')[0])

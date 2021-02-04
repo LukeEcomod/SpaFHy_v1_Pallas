@@ -12,23 +12,11 @@ Based on simple schemes for computing water flows and storages within vegetation
 canopy and snowpack at daily or sub-daily timesteps.
 
 (C) Samuli Launiainen, 2016-
-
-
-Modifications made to snowpack equations (based on Ala-aho et al.)
-- Short- and longwave radiation to snowpack from global radiation
-- Advection to snowpack from rainfall
-- Sensible heat exchange between air and snowpack
-- Heat to and from snowpack from convective vapour exchange
-- Snowpack energy and according to that mass balance equations
-(C) Jari-Pekka Nousu, 2020-
-
-
+last edit: Oct 2018 / Samuli
 ******************************************************************************
 
 """
 import numpy as np
-from numpy import log as ln
-
 eps = np.finfo(float).eps
 
 
@@ -114,15 +102,6 @@ class CanopyGrid():
         self.Kmelt = cpara['snow']['kmelt']
         self.Kfreeze = cpara['snow']['kfreeze']
         self.R = cpara['snow']['r']  # max fraction of liquid water in snow
-        self.Tmin = cpara['snow']['Tmin'] # threshold below which all precipitation is snow
-        self.Tmax = cpara['snow']['Tmin'] # threshold above which all precipitation is water (note in between will be divided to rain and snow)
-        
-        
-        self.albpow = cpara['snow']['albpow']
-        self.albground = cpara['snow']['albground']
-        self.cAtten = cpara['snow']['cAtten']
-        self.RDthres = cpara['snow']['RDthres']
-        self.retcap = cpara['snow']['retcap']
 
         # --- for computing aerodynamic resistances
         self.zmeas = cpara['flow']['zmeas']
@@ -135,15 +114,6 @@ class CanopyGrid():
         self.SWE = state['swe']
         self.SWEi = self.SWE
         self.SWEl = np.zeros(np.shape(self.SWE))
-        
-        self.d_nosnow = state['d_nosnow']
-        self.d_snow = state['d_snow']
-        self.Tsnow = state['Tsnow']
-        self.tau0 = np.exp(-self.cAtten * self.LAI)
-        self.Wice = state['Wice']
-        self.Wliq = state['Wliq']
-        self.alb = state['alb']
-
 
         # deciduous leaf growth stage
         # NOTE: this assumes simulations start 1st Jan each year !!!
@@ -164,7 +134,7 @@ class CanopyGrid():
                             'LAI': [], 'Mbe': [], 'LAIfract': [], 'Unload': []
                            }
 
-    def run_timestep(self, doy, dt, Ta, Prec, Rg, RH, Par, VPD, U=2.0, CO2=380.0,
+    def run_timestep(self, doy, dt, Ta, Prec, Rg, Par, VPD, U=2.0, CO2=380.0,
                      Rew=1.0, beta=1.0, P=101300.0):
         """
         Runs CanopyGrid instance for one timestep
@@ -199,8 +169,8 @@ class CanopyGrid():
                                                   zg=self.zground, zos=self.zo_ground)
 
         """ --- interception, evaporation and snowpack --- """
-        PotInf, Trfall, Evap, Interc, MBE, unload = self.canopy_water_snow(dt, Ta, Prec, Rn, RH, VPD, Rg, Ra=Ra, U=2.0)
-
+        PotInf, Trfall, Evap, Interc, MBE, unload = self.canopy_water_snow(dt, Ta, Prec,
+                                                                           Rn, VPD, Ra=Ra)
 
         """--- dry-canopy evapotranspiration [mm s-1] --- """
         Transpi, Efloor, Gc = self.dry_canopy_et(VPD, Par, Rn, Ta, Ra=Ra, Ras=Ras,
@@ -277,9 +247,6 @@ class CanopyGrid():
             self.DDsum = 0.
         else:
             self.DDsum += np.maximum(0.0, T - To)
-            
-        
-            
 
     def _photoacclim(self, T):
         """
@@ -419,7 +386,7 @@ class CanopyGrid():
         return Tr, Efloor, Gc
 
 
-    def canopy_water_snow(self, dt, T, Prec, AE, D, Rg, RH, Ra=25.0, U=2.0):
+    def canopy_water_snow(self, dt, T, Prec, AE, D, Ra=25.0, U=2.0):
         """
         Calculates canopy water interception and SWE during timestep dt
         Args: 
@@ -442,41 +409,21 @@ class CanopyGrid():
         Samuli Launiainen & Ari Laurén 2014 - 2017
         Last edit 12 / 2017
         """
-        
-        ## JP EDIT 22.1
-        
-        # new constants for energy snow
-        SBc = 4.89E-9 # Stefan-Boltzmann constant {MJ/day*m2*K^4)
-        rooW = 1000.0 # density of water [kg/m3]
-        Cw = 4.2E-3 # specific heat capacity of water [MJ/kg*C]
-        cair = 1.29E-3 # heat capacity of air [MJ/m3*C]
-        ds = 0.0 # zero-plane dispalcement for snow [m] (Walter et al 2005)
-        zms = 0.001 # momentum roughness for snow [m] (Walter et al 2005)
-        zhs = 0.0002 # heat and vapour roughness parameter for snow [m] (Walter et al 2005)
-        k = 0.41 # von Karman's constant
-        Rv = 4.63E-3 # gas constant for water vapour
-        Rt = 0.4615 # thermodynamic vapour constant [kJ/kg*K]
-        lamv = 2.800 # latent heat of vaporization [MJ/kg]
-        lamf = 0.333 # latent heat of fusion [MJ/kg]
-        Ci = 2.03E-3 # specific heat capacity of ice [MJ/kg*C]
 
-        
         # quality of precipitation
-        Tmin = self.Tmin  # 'C, equal or below all is snow
-        Tmax = self.Tmax  # 'C, above all is water
+        Tmin = 0.0  # 'C, below all is snow
+        Tmax = 1.0  # 'C, above all is water
         Tmelt = 0.0  # 'C, T when melting starts
 
         # storage capacities mm
-        Wmax = self.wmax * self.LAI # # storage capacity for rain (mm)
-        Wmaxsnow = self.wmaxsnow * self.LAI # storage capacity for snow (mm)
+        Wmax = self.wmax * self.LAI
+        Wmaxsnow = self.wmaxsnow * self.LAI
 
         # melting/freezing coefficients mm/s
         Kmelt = self.Kmelt - 1.64 * self.cf / dt  # Kuusisto E, 'Lumi Suomessa'
-        Kfreeze = self.Kfreeze # freezing coefficient (mm/s)
+        Kfreeze = self.Kfreeze
 
-        kp = self.physpara['kp'] # canopy light attenuation parameter (-)
-        
-        ''' sama kuin tau0? '''
+        kp = self.physpara['kp']
         tau = np.exp(-kp*self.LAI)  # fraction of Rn at ground
 
         # inputs to arrays, needed for indexing later in the code
@@ -488,17 +435,8 @@ class CanopyGrid():
             AE = np.ones(gridshape) * AE
             D = np.ones(gridshape) * D
             Ra = np.ones(gridshape) * Ra
-            RH = np.ones(gridshape) * RH
-            Rg = np.ones(gridshape) * Rg
-            U = np.ones(gridshape) * U
-            
-            
-        # reduction of windspeed due to vegetation (Tarboton and Luke 1996) (from Ala-aho et al.)
-        ''' sama kuih aerodynamic functions ?'''
-        WS = U * (1 - (0.8 * self.cf))
 
         Prec = Prec * dt  # mm
-        
         # latent heat of vaporization (Lv) and sublimation (Ls) J kg-1
         Lv = 1e3 * (3147.5 - 2.37 * (T + 273.15))
         Ls = Lv + 3.3e5
@@ -527,7 +465,7 @@ class CanopyGrid():
                                                      1e3*D[ixr], T[ixr], gs,
                                                      Ga[ixr], units='W')
 
-        # ---proportion of state of precipitation [as water (fW) or as snow(fS)]
+        # ---state of precipitation [as water (fW) or as snow(fS)]
         fW = np.zeros(gridshape)
         fS = np.zeros(gridshape)
 
@@ -544,7 +482,7 @@ class CanopyGrid():
         Interc = np.zeros(gridshape)  # interception
         Melt = np.zeros(gridshape)   # melting
         Freeze = np.zeros(gridshape)  # freezing
-        Evap = np.zeros(gridshape)  # evaporation
+        Evap = np.zeros(gridshape)
 
         """ --- initial conditions for calculating mass balance error --"""
         Wo = self.W  # canopy storage
@@ -579,200 +517,8 @@ class CanopyGrid():
         # evaporate from canopy and update storage
         Evap = np.minimum(erate, self.W)  # mm
         self.W = self.W - Evap
-        
-        #print(self.SWE)
 
         """ Snowpack (in case no snow, all Trfall routed to floor) """
-        
-        ###################################################################################################################################################################
-        ###################################################################################################################################################################
-        ###################################################################################################################################################################
-        ###################################################################################################################################################################
-        
-        print(self.SWE)
-        print(self.SWE.shape)
-        print(self.albpow)
-        print(self.albpow.shape)
-        
-        ### albedo toiminee nyt
-        
-        olds = np.where((self.SWE > 0) & (self.d_snow > 100))
-        self.alb[olds] = (0.94**self.d_nosnow[olds]**0.58)**self.albpow
-        
-        news = np.where((self.SWE > 0) & (self.d_snow < 100))
-        self.alb[news] = 0.94**self.d_nosnow[news]**0.58
-        
-        nos = np.where(self.SWE <= 0)
-        self.alb[nos] = self.albground
-                
-        
-        '''
-        if self.SWE > 0:
-            if self.d_snow > 100:
-                alb = (0.94**self.d_nosnow**0.58)**self.albpow
-            else:
-                alb = (0.94**self.d_nosnow**0.58)   
-        else:
-            alb = self.albground
-        '''
-        
-        # INCOMING SHORTWAVE RADIATION
-        # [MJ*d/m2] passing through canopy and transmitted by canopy (Wigmosta et al 1996)
-        ''' Common with AE ?'''
-        radRss = Rg * (1-self.alb) * (self.tau0 * self.cf + (1-self.cf))
-        
-        # NET LONGWAVE RADIATION in the snowpack emitted by atmosphere, overstorey and lost by snowpack (Wigmosta et al. 1996)
-        # atmosphere emissivity, different for cloudy and clear days (Walter et al 2005/Campbell and Norman
-        if Prec > self.RDthres:
-            emAir =  (0.72 + 0.005 * T) * (1 - 0.84) + 0.84
-        else:
-            emAir = 0.72 + 0.005 * T
-        
-        # Atmospheric longwave radiation
-        Ld = emAir * SBc * (273.15 + T)**4
-        
-        # Longwave emitted by overstorey, assuming emissivity of unity
-        L0 = SBc * (273.15 + T)**4
-        
-        # longwave emitted by snow, emissivity 0.97 from (Walter et al 2005)
-        Lss = 0.97 * SBc * (273.15 + self.Tsnow)**4
-        
-        # Net longwave radiation [MJ/d*m2]
-        radLs = L0 * self.cf + (Ld * (1 - self.cf)) - Lss
-        
-        # net TOTAL radation on the SNOWPACK
-        radRns = radRss + radLs
-        
-        # Advection from precipitation
-        # Heat from rain, both liquid and solid (Wigmosta et al. 1994), conversion from mm to m and kj to MJ 
-        Qp = rooW * Cw * T * (fW + 0.5 * fS)
-        
-        # Sensible heat exchange in the snowpack ...snow temperature from previous timestep is taken as input
-        # resistance to heat transfer (Walter et al 2005)
-        ras = ((ln((self.zmeas - ds + zms) / zms) * ln((self.zmeas - ds + zhs) / zhs)) / (k**2 * WS)) / dt
-        
-        # Sensible heat transfer by turbulent convection [MJ/d*m2] 
-        Qs = cair * (T - self.Tsnow) / ras   
-
-        # HEAT from convective VAPOUR EXCHANGE (evaporation and condensation)  ...snow temperature from previous timestep is takes as input
-        # saturation vapour pressure in a given air temperature (Allen et al 2000), converted to mbbar and scaled to actual with relative humidity data 
-        pVap = 0.6108 * np.exp((17.27 * T) / (T + 237.3)) * 10 * RH / 100
-        # vapour density of air (Dingman 1993, eq D-7a) converted to [kg/m3]   
-        rooA = (pVap / ((T+273.15)*Rv)) / 1000   
-        # vapour density at the snow surface (Walter et al 2005)             
-        rooSA      = np.exp((16.78 * self.Tsnow - 116.8) / (self.Tsnow + 273.3)) * (1 / ((273.15 + self.Tsnow) * Rt))
-        # latent heat flux [MJ/d*m2] (Walter et al 2005)
-        Ql = lamv * ((rooA - rooSA) / ras)
-        
-        
-        
-        # sum of ENERGY INPUT/OUTPUT which will results in melting/refreezing and heating/cooling the snowpack
-        # positive fluxes add energy to the snowpack and negative remove energy from snowpack 
-        Esum = radRns + Qp + Qs + Ql                     
-        
-        # the portion of the sum energy diverted to snowmelt 
-        if self.SWE == 0: # if there is no snow, there can be no melt or refreezing
-            Qm = 0
-        else: 
-            if Esum > 0: # determine if the snowpack is melting or freezing
-                if self.Tsnow < 0: # MELTING: is there cold content to melt first?
-                    Qm = max(0,self.Esum - (0 - self.ST)*(1/(Ci*(self.SWE+0.00001)*rooW))) # what is available for melt after heating the snowpack. If more cold content than heat, nothing left for melt (add 0.00001 for numerical stability)
-                else:
-                    Qm = Esum  # snowpack isothermal, all energy is diverted to snowmelt !
-            elif self.Wliq == 0: # FREEZING: is there liquid water to refreeze?
-                Qm = 0 # no liquid water, no energy is wasted on freezing water
-            else: 
-                Qm = max(-rooW * lamf * self.Wliq, Esum) # either there is energy to refreeze everything or just a fraction is refrozen  
-                
-        # snowpack cold content change
-        Qc = Esum - Qm  
-        
-        
-        # mass balance formulation concept from (Wigmosta 1994) except that sublimation/deposition takes place from ice phase
-        
-        # store values from previous timestep
-        Wliq_o = self.Wliq
-        Wice_o = self.Wice
-
-        
-        self.Wice = np.maximum(0.0, self.Wice + Trfall + Unload)
-        
-        if Qm < 0:
-            self.M = np.maximum(Qm / (rooW * lamf), -self.Wliq)
-        else:
-            self.M = np.minimum(Qm / (rooW * lamf), self.Wice)
-            
-        self.Wice = np.maximum(0, self.Wice - self.M)
-        
-        # calculate and limit evaporation/deposition
-        # sublimation/deposition to the solid ice phase, assuming there is ice left !! no evaporation from liquid phase...! 
-        if self.Wice > 0:
-            self.Eice = np.maximum(Ql / (rooW * lamv), -self.Wice)
-        else:
-            self.Eice = 0.0
-
-        # update the mass balance of the ice phase
-        # update snow ice content after sublimation, cannot go negative
-        self.Wice = max(0, self.Wice + self.Eice)                      
-
-
-        # mass balance for liquid phase
-        # liquid water in the snowpack [m], cannot exceed water retention capacity or go negative
-        # water is added via rain and added/removed via melting/freezing
-        self.Wliq       = max(0, min(self.retcap * self.Wice, self.Wliq + fW + self.M))
-                       
-        
-        # water flow out of the snowpack, a certain volume retained  
-        self.Wliqout    = max(0, (Wliq_o + fW + self.M) - self.retcap * self.Wice)  
-        # COMFORM to variable naming and convert to [mm/d]
-        self.Pmelt      = self.Wliqout * 1000                                       
-    
-        # total water content in snowpack     
-        # total snow water equivalent a sum of liquid and ice fraction
-        self.SWE        = self.Wice + self.Wliq              
-        # save the change in SWE                       
-        self.deltaSWE   = self.SWE - SWEo                                        
-            
-        
-        # update snow temperature according to energy and mass balance                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-        self.Tsnow0 = self.Tsnow
-        # constrain snow temperature
-        if self.SWE < 0.05:
-            self.Tsnow = T # with shallow snow depths snow temp equals air temp
-        else:
-            self.Tsnow = self.Tsnow0 + (Qc / (Ci*self.SWE*rooW)) # excess energy from melting 
- 
-        if Qm > 0:
-            self.Tsnow = 0.0 # during melt ST = 0 
-            
-        # cannot go too cold, miniimise to AT. This breaks the energy conservation so this could be improved. Perhaps introduce soil energy store where excess energy/cold content is diverted  
-        if self.Tsnow < -4.0: # if snow temperature tries to go below -4, set lower limit to air temperature
-            self.Tsnow = np.maximum(self.Tsnow, T)
-        
-        self.Tsnow = min(self.Tsnow, 0.0) # cannot be positive
-            
-        
-        # set the internal energy flux variables to 0 as long as the SWE is 0
-        if self.SWE == 0:
-            self.Ql = 0.0
-            self.Qs = 0.0
-            self.Qc = 0.0
-            self.Qm = 0.0
-            
-
-        PotInf = np.maximum(0.0, self.Wliq - self.Wice * self.R)
-        
-        # mass-balance error mm
-        MBE = (self.W + self.SWE) - (Wo + SWEo) - (Prec - Evap - PotInf)        
-        
-        
-        
-        ###################################################################################################################################################################
-        ###################################################################################################################################################################
-        ###################################################################################################################################################################
-        ###################################################################################################################################################################
-        
-        '''
         ix = np.where(T >= Tmelt)
         Melt[ix] = np.minimum(self.SWEi[ix], Kmelt[ix] * dt * (T[ix] - Tmelt))  # mm
         del ix
@@ -791,20 +537,9 @@ class CanopyGrid():
         self.SWEl = Sliq
         self.SWEi = Sice
         self.SWE = self.SWEl + self.SWEi
-        '''
-        '''
-        if Trfall < 0.001 or T > Tmin:
-            self.d_nosnow = min(30, self.d_nosnow + 1)
-        if Trfall > 0.001 and T < Tmin:
-            self.d_nosnow = 1
-            
-        if self.SWE > 0:
-            self.d_snow = self.d_snow + 1
-        else:
-            self.d_snow = 0
-        '''
+        
         # mass-balance error mm
-        #MBE = (self.W + self.SWE) - (Wo + SWEo) - (Prec - Evap - PotInf)
+        MBE = (self.W + self.SWE) - (Wo + SWEo) - (Prec - Evap - PotInf)
 
         return PotInf, Trfall, Evap, Interc, MBE, Unload
 

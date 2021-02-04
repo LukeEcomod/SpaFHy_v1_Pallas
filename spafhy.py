@@ -231,10 +231,19 @@ class SpaFHy():
         RR = self.bu._drainage_to_gw * self.top.CellArea / self.top.CatchmentArea
         qb, _, qr, fsat = self.top.run_timestep(RR)
 
-        # run CanopyGrid
+        '''
+        # for energy snow
+        # run CanopyGrid 
         potinf, trfall, interc, evap, et, transpi, efloor, mbe = \
             self.cpy.run_timestep(doy, self.dt, ta, prec, rg, rh, par, vpd, U=u, CO2=co2,
                                   beta=self.bu.Ree, Rew=self.bu.Rew, P=101300.0)
+        '''    
+        # for degreeday snow    
+        # run CanopyGrid
+        potinf, trfall, interc, evap, et, transpi, efloor, mbe = \
+            self.cpy.run_timestep(doy, self.dt, ta, prec, rg, par, vpd, U=u, CO2=co2,
+                                  beta=self.bu.Ree, Rew=self.bu.Rew, P=101300.0)           
+        #'''    
 
         # run BucketGrid water balance
         infi, roff, drain, tr, eva, mbes = self.bu.watbal(dt=self.dt, rr=1e-3*potinf, tr=1e-3*transpi,

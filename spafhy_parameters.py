@@ -47,7 +47,6 @@ def parameters():
                     'albground': 0.21, # albedo for snowfree ground
                     'cAtten': 1.0, # attenuation coeffient for canopy longwave radiation (Montehit and Unsworth 2013 fig 8.2)
                     'RDthres': 0.001, # amount of precipitation [m] above which a day is considered cloudy (affects long wave inputs)
-                    'retcap': 0.05, # maximum water rentention capacity of the snowpack
                     'Tmin': 1.0, # threshold below which all precipitation is snow
                     'Tmax': 0.0, # threshold above which all precipitation is water (note in between will be divided to rain and snow)
                     },
@@ -109,12 +108,13 @@ def parameters():
                        #initial state of canopy storage [mm] and snow water equivalent [mm]
                        'w': 0.0, # canopy storage mm
                        'swe': 0.0, # snow water equivalent mm
-                       'Wice': 0.2, # ice in snowpack
+                       'Wice': 0.0, # ice in snowpack
                        'Wliq': 0.0, # liquid water in snowpack
                        'd_nosnow': 1.0, # days since snowfall
                        'd_snow': 0.0, # days with snow on the ground
                        'Tsnow': -4.0, # snow temperature 
                        'alb': 0, # initial albedo
+                       'emAir': 0 # intiail air emissivity
                        }
             }
 
