@@ -13,3 +13,6 @@ Weather_C3_Kenttarova =
 - FMI hourly observations from kenttarova resampled to daily resolution (meteohourlytodaily.py)
 - Kenttärova radiation data (2017-2019 orig FMI, from Kashif) resampled to daily and merged to previous data (radiationdata.py)
 - The missing radiation data 2013-2017 from LUKE grid weather data added (meteo_grid_fmi_merge.py)
+Kenttarova_forcing
+- Latest forcing dataset consisting the FMI observations from Kenttarova station resampled to daily resolution
+- Global radiation from Kenttarova EC dataset

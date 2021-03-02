@@ -102,6 +102,7 @@ class CanopyGrid():
         self.Kmelt = cpara['snow']['kmelt']
         self.Kfreeze = cpara['snow']['kfreeze']
         self.R = cpara['snow']['r']  # max fraction of liquid water in snow
+        self.cAtten = cpara['snow']['cAtten']
 
         # --- for computing aerodynamic resistances
         self.zmeas = cpara['flow']['zmeas']
@@ -368,11 +369,13 @@ class CanopyGrid():
         
         # canopy conductance
         Gc = gs * fQ * fRew * fCO2 * fPheno
+        Gc[Gc == 0] = eps
         Gc[np.isnan(Gc)] = eps
 
         """ --- transpiration rate --- """
         Tr = penman_monteith((1.-tau)*AE, 1e3*D, Ta, Gc, 1./Ra, units='mm')
         Tr[Tr < 0] = 0.0
+        #print(Tr)
 
         """--- forest floor evaporation rate--- """
         # soil conductance is function of relative water availability
@@ -542,6 +545,443 @@ class CanopyGrid():
         MBE = (self.W + self.SWE) - (Wo + SWEo) - (Prec - Evap - PotInf)
 
         return PotInf, Trfall, Evap, Interc, MBE, Unload
+    
+    
+    def canopy_water_snow_energy(self, dt, T, Prec, AE, D, Rg, RH, Ra=25.0, U=2.0):
+        """
+        Calculates canopy water interception and SWE during timestep dt
+        Args: 
+            self - object
+            dt - timestep [s]
+            T - air temperature (degC)
+            Prec - precipitation rate during (mm d-1)
+            AE - available energy (~net radiation) (Wm-2)
+            D - vapor pressure deficit (kPa)
+            Ra - canopy aerodynamic resistance (s m-1)
+        Returns:
+            self - updated state W, Wf, SWE, SWEi, SWEl
+            PotInf - potential infiltration to soil profile (mm)
+            Trfall - throughfall to snow / soil surface (mm)
+            Evap - evaporation / sublimation from canopy store (mm)
+            Interc - interception of canopy (mm)
+            MBE - mass balance error (mm)
+            Unload - undloading from canopy storage (mm)
+            
+        Samuli Launiainen & Ari Laurén 2014 - 2017
+        Last edit 12 / 2017
+        """
+        
+        ## JP EDIT 22.1
+        
+        # new constants for energy snow
+        SBc = 4.89E-9 # Stefan-Boltzmann constant {MJ/day*m2*K^4)
+        rooW = 1000.0 # density of water [kg/m3]
+        Cw = 4.2E-3 # specific heat capacity of water [MJ/kg*C]
+        cair = 1.29E-3 # heat capacity of air [MJ/m3*C]
+        ds = 0.0 # zero-plane dispalcement for snow [m] (Walter et al 2005)
+        zms = 0.001 # momentum roughness for snow [m] (Walter et al 2005)
+        zhs = 0.0002 # heat and vapour roughness parameter for snow [m] (Walter et al 2005)
+        k = 0.41 # von Karman's constant
+        Rv = 4.63E-3 # gas constant for water vapour
+        Rt = 0.4615 # thermodynamic vapour constant [kJ/kg*K]
+        lamv = 2.800 # latent heat of vaporization [MJ/kg]
+        lamf = 0.333 # latent heat of fusion [MJ/kg]
+        Ci = 2.03E-3 # specific heat capacity of ice [MJ/kg*C]
+
+        # inputs to arrays, needed for indexing later in the code
+        gridshape = np.shape(self.LAI)  # rows, cols
+        
+        if np.shape(T) != gridshape:
+            T = np.ones(gridshape) * T
+            Prec = np.ones(gridshape) * Prec
+            AE = np.ones(gridshape) * AE
+            D = np.ones(gridshape) * D
+            Ra = np.ones(gridshape) * Ra
+            RH = np.ones(gridshape) * RH
+            Rg = np.ones(gridshape) * Rg
+            U = np.ones(gridshape) * U     
+            
+        Prec = Prec * dt  # mm/d
+        
+            
+        # quality of precipitation
+        Tmin = self.Tmin  # 'C, equal or below all is snow
+        Tmax = self.Tmax  # 'C, above all is water        
+        
+        # ---proportion of state of precipitation [as water (fW) or as snow(fS)]
+        fW = np.zeros(gridshape)
+        fS = np.zeros(gridshape)
+
+        fW[T >= Tmax] = 1.0
+        fS[T <= Tmin] = 1.0
+
+        ix = np.where((T > Tmin) & (T < Tmax))
+        fW[ix] = (T[ix] - Tmin) / (Tmax - Tmin)
+        fS[ix] = 1.0 - fW[ix]
+        del ix
+
+        # latent heat of vaporization (Lv) and sublimation (Ls) J kg-1
+        Lv = 1e3 * (3147.5 - 2.37 * (T + 273.15))
+        Ls = Lv + 3.3e5
+
+        # storage capacities m
+        Wmax = self.wmax * self.LAI  # storage capacity for rain (m)
+        Wmaxsnow = self.wmaxsnow * self.LAI # storage capacity for snow (m)
+    
+        #kp = self.physpara['kp'] # canopy light attenuation parameter (-)
+        tau = np.exp(-self.cAtten*self.LAI)  # fraction of Rn at ground
+
+        # reduction of windspeed due to vegetation (Tarboton and Luke 1996) (from Ala-aho et al.)
+        ''' sama kuih aerodynamic functions ?'''
+        WS = U * (1 - (0.8 * self.cf))
+
+        # compute 'potential' evaporation / sublimation rates for each grid cell
+        erate = np.zeros(gridshape)
+        ixs = np.where((Prec == 0) & (T <= Tmin))
+        ixr = np.where((Prec == 0) & (T > Tmin))
+        Ga = 1. / Ra  # aerodynamic conductance
+
+        # resistance for snow sublimation adopted from:
+        # Pomeroy et al. 1998 Hydrol proc; Essery et al. 2003 J. Climate;
+        # Best et al. 2011 Geosci. Mod. Dev.
+
+        Ce = 0.01*((self.W + eps) / Wmaxsnow)**(-0.4)  # exposure coeff (-)
+        Sh = (1.79 + 3.0*U**0.5)  # Sherwood numbner (-)
+        gi = Sh*self.W*Ce / 7.68 + eps # m s-1
+
+        erate[ixs] = dt / Ls[ixs] * penman_monteith((1.0 - tau[ixs])*AE[ixs],
+                                                     1e3*D[ixs], T[ixs], gi[ixs],
+                                                     Ga[ixs], units='W')
+
+        # evaporation of intercepted water, mm
+        gs = 1e6
+        erate[ixr] = dt / Lv[ixr] * penman_monteith((1.0 - tau[ixr])*AE[ixr],
+                                                     1e3*D[ixr], T[ixr], gs,
+                                                     Ga[ixr], units='W')
+
+
+
+        # --- Local fluxes (mm)
+        Unload = np.zeros(gridshape)  # snow unloading
+        Interc = np.zeros(gridshape)  # interception
+        Evap = np.zeros(gridshape)  # evaporation
+        
+        Subl = np.zeros(gridshape)  # sublimation from snowpack
+        Meltrate = np.zeros(gridshape) # rate of melting/refreezing [m/d]
+        Freezerate = np.zeros(gridshape) # rate of melting/refreezing [m/d]
+        Qm = np.zeros(gridshape) # melt energy content
+        Qc = np.zeros(gridshape) # cold content
+        
+
+
+        """ --- initial conditions for calculating mass balance error --"""
+        Wo = self.W  # canopy storage
+        SWEo = self.SWE  # Snow water equivalent mm
+
+        """ --------- Canopy water storage change -----"""
+        # snow unloading from canopy, ensures also that seasonal LAI development does
+        # not mess up computations
+        ix = (T >= Tmax)
+        Unload[ix] = np.maximum(self.W[ix] - Wmax[ix], 0.0)
+        self.W = self.W - Unload
+        del ix
+        # dW = self.W - Wo
+
+        # Interception of rain or snow: asymptotic approach of saturation.
+        # Hedstrom & Pomeroy 1998. Hydrol. Proc 12, 1611-1625;
+        # Koivusalo & Kokkonen 2002 J.Hydrol. 262, 145-164.
+        ix = (T < Tmin)
+        Interc[ix] = (Wmaxsnow[ix] - self.W[ix]) \
+                    * (1.0 - np.exp(-(self.cf[ix] / Wmaxsnow[ix]) * Prec[ix]))
+        del ix
+        
+        # above Tmin, interception capacity equals that of liquid precip
+        ix = (T >= Tmin)
+        Interc[ix] = np.maximum(0.0, (Wmax[ix] - self.W[ix]))\
+                    * (1.0 - np.exp(-(self.cf[ix] / Wmax[ix]) * Prec[ix]))
+        del ix
+        self.W = self.W + Interc  # new canopy storage, mm
+
+        Trfall = Prec + Unload - Interc  # Throughfall to field layer or snowpack
+        
+
+        # evaporate from canopy and update storage
+        Evap = np.minimum(erate, self.W)  # mm
+        self.W = self.W - Evap
+        
+        #print(self.SWE)
+
+        """ Snowpack (in case no snow, all Trfall routed to floor) """
+        
+        # for this part, a conversion of units to meters is necessary
+        Trfallice = Trfall * fS * 1e-3 # m/d
+        Trfallliq = Trfall * fW * 1e-3 # m/d
+        
+        SWE_m = np.ones(gridshape)  # temp variable for SWE energy (m)
+        SWE_m = self.SWE * 1e-3
+        SWE_m0 = SWE_m
+        #Wliq_m = np.zeros(gridshape) # temp variable for liquid water in snowpack (m)
+        #Wice_m = np.zeros(gridshape) # temp variable for liquid water in snowpack (m)
+        
+        # Albedo where there is very old snow
+        olds = np.where((SWE_m > 0) & (self.d_snow > 100))
+        self.alb[olds] = (0.94**self.d_nosnow[olds]**0.58)**self.albpow
+        
+        # Albedo where there is newer snow
+        news = np.where((SWE_m > 0) & (self.d_snow < 100))
+        self.alb[news] = 0.94**self.d_nosnow[news]**0.58
+        
+        # Ground albedo
+        nos = np.where(SWE_m <= 0)
+        self.alb[nos] = self.albground
+        
+        #print(self.alb[1])
+        del olds, news, nos
+        
+        # INCOMING SHORTWAVE RADIATION
+        # [MJ*d/m2] passing through canopy and transmitted by canopy (Wigmosta et al 1996)
+        ''' Common with AE ?'''
+        radRs = Rg * 1e-6 * dt # W/m2 to MJ/d/m2
+        radRss = radRs * (1-self.alb) * (self.tau * self.cf + (1-self.cf)) # radRss = MJ/d*m2
+        
+        # NET LONGWAVE RADIATION in the snowpack emitted by atmosphere, overstorey and lost by snowpack (Wigmosta et al. 1996)
+        # atmosphere emissivity, different for cloudy and clear days (Walter et al 2005/Campbell and Norman
+
+        ix = np.where(Prec > self.RDthres)
+        self.emAir[ix] = (0.72 + 0.005 * T[ix]) * (1 - 0.84) + 0.84
+        ax = np.where(Prec <= self.RDthres)
+        self.emAir[ax] = 0.72 + 0.005 * T[ax]
+        
+        # Atmospheric longwave radiation
+        Ld = self.emAir * SBc * (273.15 + T)**4
+        
+        # Longwave emitted by overstorey, assuming emissivity of unity
+        L0 = SBc * (273.15 + T)**4
+        
+        # longwave emitted by snow, emissivity 0.97 from (Walter et al 2005)
+        Lss = 0.97 * SBc * (273.15 + self.Tsnow)**4
+        
+        # Net longwave radiation [MJ/d*m2]
+        radLs = L0 * self.cf + (Ld * (1 - self.cf)) - Lss
+        
+        # net TOTAL radation on the SNOWPACK
+        radRns = radRss + radLs # MJ/d*m2
+        
+        # Advection from precipitation
+        # Heat from rain, both liquid and solid (Wigmosta et al. 1994), conversion from mm to m and kj to MJ 
+        Qp = rooW * Cw * T * (Trfallice + 0.5 * Trfallice)
+        
+        # Sensible heat exchange in the snowpack ...snow temperature from previous timestep is taken as input
+        # resistance to heat transfer (Walter et al 2005)
+        ras = ((ln((self.zmeas - ds + zms) / zms) * ln((self.zmeas - ds + zhs) / zhs)) / (k**2 * WS)) / dt
+        
+        # Sensible heat transfer by turbulent convection [MJ/d*m2] 
+        Qs = cair * (T - self.Tsnow) / ras   
+
+        # HEAT from convective VAPOUR EXCHANGE (evaporation and condensation)  ...snow temperature from previous timestep is takes as input
+        # saturation vapour pressure in a given air temperature (Allen et al 2000), converted to mbbar and scaled to actual with relative humidity data 
+        pVap = 0.6108 * np.exp((17.27 * T) / (T + 237.3)) * 10 * RH / 100
+        # vapour density of air (Dingman 1993, eq D-7a) converted to [kg/m3]   
+        rooA = (pVap / ((T + 273.15) * Rv)) / 1000   
+        # vapour density at the snow surface (Walter et al 2005)             
+        rooSA      = np.exp((16.78 * self.Tsnow - 116.8) / (self.Tsnow + 273.3)) * (1 / ((273.15 + self.Tsnow) * Rt))
+        # latent heat flux [MJ/d*m2] (Walter et al 2005)
+        Ql = lamv * ((rooA - rooSA) / ras)
+        
+        
+        # sum of ENERGY INPUT/OUTPUT which will results in melting/refreezing and heating/cooling the snowpack
+        # positive fluxes add energy to the snowpack and negative remove energy from snowpack 
+        Esum = radRns + Qp + Qs + Ql  # MJ/dt*m2
+
+        #print('Esum = ', Esum)            
+        
+        # Energy for melt with different conditions
+        # if there is no snow, there can be no melt or refreezing
+        nos = np.where(SWE_m == 0)
+        Qm[nos] = 0
+        
+        # If there is snow and energy to melt it
+        ix = np.where((SWE_m > 0) & (Esum > 0) & (self.Tsnow < 0))
+        # what is available for melt after heating the snowpack. 
+        # If more cold content than heat, nothing left for melt (add 0.00001 for numerical stability)
+        Qm[ix] = np.maximum(0, Esum[ix] - (0 - self.Tsnow[ix]) * (1 / (Ci * (SWE_m[ix] + 0.00001) * rooW)))
+        
+        # Snowpack isothermal, all energy is diverted to snowmelt !
+        ax = np.where((SWE_m > 0) & (Esum <= 0) & (self.Tsnow >= 0))
+        Qm[ax] = Esum[ax]
+        
+        # If Esum negative but no water to freeze -> Qm = 0
+        ex = np.where((SWE_m > 0) & (Esum <= 0) & (self.Wliq == 0))
+        Qm[ex] = 0
+        
+        # Esum negative and Wliq to freeze
+        yx = np.where((SWE_m > 0) & (Esum <= 0) & (self.Wliq != 0))
+        Qm[yx] = np.maximum(-rooW * lamf * self.Wliq[yx], Esum[yx])
+        
+        del ix, ax, ex, yx
+        
+        # snowpack cold content change
+        Qc = Esum - Qm  
+        
+        #print('Qc = ', Qc)
+        
+        #print('Wliq', self.Wliq)
+        
+        # mass balance formulation concept from (Wigmosta 1994) except that sublimation/deposition takes place from ice phase
+        
+        # store values from previous timestep
+        Wliq_o = self.Wliq
+        Wice_o = self.Wice
+
+        self.Wice = np.maximum(0.0, self.Wice + Trfallice)
+        
+        #print('Qm = ', Qm)
+        
+        ix = np.where(Qm < 0)
+        Freezerate[ix] = np.maximum(Qm[ix] / (rooW * lamf), -self.Wliq[ix]) # rate of freezing
+        
+        ax = np.where(Qm >= 0)
+        Meltrate[ax] = np.minimum(Qm[ax] / (rooW * lamf), self.Wice[ax]) # rate of melting
+        
+        del ix, ax
+        
+        self.Wice = np.maximum(0, self.Wice - Meltrate - Freezerate)
+        
+        
+        # calculate and limit evaporation/deposition
+        # sublimation/deposition to the solid ice phase, assuming there is ice left !! no evaporation from liquid phase...! 
+        
+        ix = np.where(self.Wice > 0)
+        Subl[ix] = np.maximum(Ql[ix] / (rooW * lamv), -self.Wice[ix])
+        del ix
+        
+        
+        # update the mass balance of the ice phase
+        # update snow ice content after sublimation, cannot go negative
+        self.Wice = np.maximum(0, self.Wice + Subl)                      
+
+
+        # mass balance for liquid phase
+        # liquid water in the snowpack [m], cannot exceed water retention capacity or go negative
+        # water is added via rain and added/removed via melting/freezing
+        self.Wliq = np.maximum(0, np.minimum(self.R * self.Wice, self.Wliq + Trfallliq + Meltrate))
+                       
+        
+        # water flow out of the snowpack, a certain volume retained  
+        self.Wliqout = np.maximum(0, (Wliq_o + Trfallliq + Meltrate) - self.R * self.Wice)  
+        # COMFORM to variable naming and convert to [mm/d]
+        #Melt = self.Wliqout * 1000                                       
+        
+        self.Wliq = np.maximum(0, self.Wliq - self.Wliqout)
+        
+        #print('Wliq out = ', self.Wliqout)   
+        #print('Wliq = ', self.Wliq)
+        #print('Wice = ', self.Wice)
+    
+        # total water content in snowpack     
+        # total snow water equivalent a sum of liquid and ice fraction
+        SWE_m        = self.Wice + self.Wliq
+          
+        # save the change in SWE                       
+        self.deltaSWE   = SWE_m - SWEo                                        
+            
+        
+        # update snow temperature according to energy and mass balance                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+        self.Tsnow0 = self.Tsnow
+        # constrain snow temperature
+        
+        # with shallow snow depths snow temp equals air temp
+        ix = np.where(SWE_m < 0.05)
+        self.Tsnow[ix] = T[ix]
+        
+        # excess energy from melting 
+        ax = np.where(SWE_m >= 0.05)
+        self.Tsnow[ax] = self.Tsnow0[ax] + (Qc[ax] / (Ci * SWE_m[ax] * rooW)) # excess energy from melting
+        
+        # during melt Tsnow = 0
+        ex = np.where(Qm > 0)
+        self.Tsnow[ex] = 0.0
+        
+        # cannot go too cold, miniimise to AT. This breaks the energy conservation so this could be improved. Perhaps introduce soil energy store where excess energy/cold content is diverted
+        # if snow temperature tries to go below -4, set lower limit to air temperature
+        yx = np.where(self.Tsnow < -4.0)
+        self.Tsnow[yx] = np.maximum(self.Tsnow[yx], T[yx])
+        
+        self.Tsnow = np.minimum(self.Tsnow, 0.0) # cannot be positive
+        
+        # set the internal energy flux variables to 0 as long as the SWE is 0
+        xx = np.where(SWE_m == 0)
+        Ql[xx] = 0.0
+        Qs[xx] = 0.0
+        Qc[xx] = 0.0
+        Qm[xx] = 0.0
+        
+        
+        
+        
+        del ix, ax, ex, yx
+        
+        self.SWE = SWE_m * 100
+        
+
+        PotInf = np.maximum(0.0, self.Wliq - self.Wice * self.R)
+        
+        PotInf = PotInf * 1000
+        
+        # mass-balance error mm
+        MBE = (self.W + self.SWE) - (Wo + SWEo) - (Prec - Evap - PotInf)        
+        
+        #print('ESUM = ', Esum)
+        #print('Potinf =', PotInf)
+        #print('Wliq = ', self.Wliq)
+        #print('Wice =', self.Wice)
+        
+        ###################################################################################################################################################################
+        ###################################################################################################################################################################
+        ###################################################################################################################################################################
+        ###################################################################################################################################################################
+        
+        '''
+        ix = np.where(T >= Tmelt)
+        Melt[ix] = np.minimum(self.SWEi[ix], Kmelt[ix] * dt * (T[ix] - Tmelt))  # mm
+        del ix
+        ix = np.where(T < Tmelt)
+        Freeze[ix] = np.minimum(self.SWEl[ix], Kfreeze * dt * (Tmelt - T[ix]))  # mm
+        del ix
+
+        # amount of water as ice and liquid in snowpack
+        Sice = np.maximum(0.0, self.SWEi + fS * Trfall + Freeze - Melt)
+        Sliq = np.maximum(0.0, self.SWEl + fW * Trfall - Freeze + Melt)
+
+        PotInf = np.maximum(0.0, Sliq - Sice * self.R)  # mm
+        Sliq = np.maximum(0.0, Sliq - PotInf)  # mm, liquid water in snow
+
+        # update Snowpack state variables
+        self.SWEl = Sliq
+        self.SWEi = Sice
+        self.SWE = self.SWEl + self.SWEi
+        '''
+        
+        ix = np.where(Trfallice < 0.001)
+        self.d_nosnow[ix] = np.minimum(30, self.d_nosnow[ix] + 1)
+        
+        ax = np.where(Trfallice > 0.001)
+        self.d_nosnow[ax] = 1
+        
+        ex = np.where(self.SWE > 0)
+        self.d_snow[ex] = self.d_snow[ex] + 1
+        
+        yx = np.where(self.SWE == 0)
+        self.d_snow[yx] = 0
+        
+        del ix, ax, ex, yx
+        
+        # mass-balance error mm
+        #MBE = (self.W + self.SWE) - (Wo + SWEo) - (Prec - Evap - PotInf)
+
+        return PotInf, Trfall, Evap, Interc, MBE, Unload
+    
+    
 
 """ *********** utility functions ******** """
 
@@ -639,10 +1079,20 @@ def penman_monteith(AE, D, T, Gs, Ga, P=101300.0, units='W'):
     rho = 1.25  # kg m-3
     Mw = 18e-3  # kg mol-1
     _, s, g = e_sat(T, P)  # slope of sat. vapor pressure, psycrom const
+    #print(s)
+    #print(g)
     L = 1e3 * (3147.5 - 2.37 * (T + 273.15))
-    
+    #print(Gs)
     x = (s * AE + rho * cp * Ga * D) / (s + g * (1.0 + Ga / Gs))  # Wm-2
     
+    #print(x.shape)
+    #print(s.shape)
+    
+    #if np.any(s + g * (1.0 + Ga / Gs )) == 0:
+    #    print('s =', s)
+    #    print('g =', g)
+    #    print('Ga = ', Ga)
+    #    print('Gs =', Gs)
 
     if units == 'mm':
         x = x / L  # kgm-2s-1 = mms-1

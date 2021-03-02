@@ -39,13 +39,10 @@ psoil = soil_properties()
 gisdata = read_catchment_data(pgen['catchment_id'], fpath=pgen['gis_folder'],
                               plotgrids=True, plotdistr=False)
 
-gisdata['LAI_grass'] = 0.5 * gisdata['LAI_decid']
-gisdata['LAI_shrub'] = 0.1 * gisdata['LAI_conif']
+# if shrub and grass not available
+#gisdata['LAI_grass'] = 0.5 * gisdata['LAI_decid']
+#gisdata['LAI_shrub'] = 0.1 * gisdata['LAI_conif']
 
-
-# put this in spafhy_io or spafhy_test_gisinputs16b
-gisdata['LAI_conif'][gisdata['LAI_conif'] == 0] = 0.01
-gisdata['LAI_decid'][gisdata['LAI_decid'] == 0] = 0.01
 
 
 # initialize SpaFHy
@@ -70,7 +67,7 @@ FORC = read_FMI_weather(pgen['catchment_id'],
                         pgen['end_date'],
                         sourcefile=pgen['forcing_file'])
 FORC['Prec'] = FORC['Prec'] / spa.dt  # mms-1
-FORC['U'] = 2.0 # use constant wind speed ms-1
+
 
 Nsteps = len(FORC)
 Nspin = np.where(FORC.index == pgen['spinup_end'])[0][0]

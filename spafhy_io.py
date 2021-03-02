@@ -205,7 +205,7 @@ def read_FMI_weather(ID, start_date, end_date, sourcefile, CO2=380.0):
     if ID > 0:
         fmi = fmi[fmi['ID'] == ID]
     
-    fmi['h2o'] = 1e-1*fmi['h2o']  # hPa-->kPa
+    fmi['h2o'] = 1e-3*fmi['h2o']  # -> kPa
     #fmi['Rg'] = 1e3 / 86400.0*fmi['Rg']  # kJ/m2/d-1 to Wm-2
     fmi['Par'] = 0.5*fmi['Rg']
 
@@ -401,6 +401,22 @@ def read_catchment_data(ID, fpath, plotgrids=False, plotdistr=False):
     LAI_spruce, _, _, _, _ = read_AsciiGrid(os.path.join(fpath,'LAI_spruce.dat'))
     LAI_decid, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'LAI_decid.dat'))
     
+    if os.path.exists(os.path.join(fpath, 'LAI_grass.dat')):
+        LAI_grass, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'LAI_grass.dat'), setnans=False)
+        LAI_grass = LAI_grass*cmask
+        
+    if os.path.exists(os.path.join(fpath, 'LAI_shrub.dat')):
+        LAI_shrub, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'LAI_shrub.dat'), setnans=False)
+        LAI_shrub = LAI_shrub*cmask        
+        
+    # eps when LAI goes 0
+    LAI_pine[LAI_pine == 0] = eps
+    LAI_spruce[LAI_spruce == 0] = eps
+    LAI_decid[LAI_decid == 0] = eps
+    LAI_shrub[LAI_shrub == 0] = eps
+    LAI_grass[LAI_grass == 0] = eps
+
+    
 #    # leaf biomasses (10 kg/ha) and one-sided LAI (m2m-2)
 #    bmleaf_pine, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'bmleaf_pine.dat'))
 #    bmleaf_spruce, _, _, _, _ = read_AsciiGrid(os.path.join(fpath,'bmleaf_spruce.dat'))
@@ -415,21 +431,12 @@ def read_catchment_data(ID, fpath, plotgrids=False, plotdistr=False):
            'twi': twi, 'soilclass': soilclass, 'stream': stream,
            'LAI_pine': LAI_pine, 'LAI_spruce': LAI_spruce,
            'LAI_conif': LAI_pine + LAI_spruce,
-           'LAI_decid': LAI_decid, 'hc': hc,
+           'LAI_decid': LAI_decid, 'LAI_shrub': LAI_shrub, 'LAI_grass': LAI_grass, 'hc': hc,
            'cf': cf, 'cellsize': cellsize,
            'info': info, 'lat0': lat0, 'lon0': lon0, 'loc': loc
            }
 
 
-    '''# dict of all rasters
-    gis = {'cmask': cmask, 'dem': dem, 'flowacc': flowacc, 'slope': slope,
-           'twi': twi, 'soilclass': soilclass, 'stream': stream,
-           'LAI_pine': LAI_pine, 'LAI_spruce': LAI_spruce,
-           'LAI_conif': LAI_pine + LAI_spruce,
-           'LAI_decid': LAI_decid, 'ba': ba, 'hc': hc,
-           'vol': vol, 'cf': cf, 'age': age, 'cellsize': cellsize,
-           'info': info, 'lat0': lat0, 'lon0': lon0, 'loc': loc
-           }'''
     
     if plotgrids is True:
         #%matplotlib qt

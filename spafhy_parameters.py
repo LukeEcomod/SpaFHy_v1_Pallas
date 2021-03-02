@@ -15,12 +15,12 @@ def parameters():
     
     pgen = {'catchment_id': '1',
             'gis_folder': r'C:\SpaFHy_v1_Pallas\data\C16',
-            'forcing_file': r'C:\SpaFHy_v1_Pallas\data\Weather_C3_Kenttarova.csv',
-            'runoff_file': r'C:\SpaFHy_v1_Pallas\data\Runoffs1d_SVEcatchments_mmd.csv', #
+            'forcing_file': r'C:\SpaFHy_v1_Pallas\data\Kenttarova_forcing.csv',
+            'runoff_file': r'C:\SpaFHy_v1_Pallas\data\obs\Runoffs1d_SVEcatchments_mmd.csv', #
             'ncf_file': r'C3.nc',
             'results_folder': r'C:\SpaFHy_v1_Pallas\Results',
             'start_date': '2013-01-01',
-            'end_date': '2019-10-01',
+            'end_date': '2019-12-31',
             'spinup_end': '2013-12-31',
             'dt': 86400.0,
             'spatial_cpy': True,
@@ -130,8 +130,8 @@ def parameters():
            #organic (moss) layer
            'org_depth': 0.05, # depth of organic top layer (m)
            'org_poros': 0.9, # porosity (-)
-           'org_fc': 0.3, # field capacity (-)
-           'org_rw': 0.24, # critical vol. moisture content (-) for decreasing phase in Ef
+           'org_fc': 0.30, # field capacity (-)
+           'org_rw': 0.15, # critical vol. moisture content (-) for decreasing phase in Ef
            'maxpond': 0.0, # max ponding allowed (m)
            #initial states: rootzone and toplayer soil saturation ratio [-] and pond storage [m]
            'rootzone_sat': 0.6, # root zone saturation ratio (-)
@@ -175,7 +175,7 @@ def soil_properties():
                   'alpha': 0.024,
                   'beta': 4.7,
                   'fc': 0.33,
-                  'ksat': 4e-06,
+                  'ksat': 1e-05,
                   'n': 1.2,
                   'poros': 0.43,
                   'soil_id': 2.0,

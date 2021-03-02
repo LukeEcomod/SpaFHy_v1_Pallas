@@ -182,6 +182,7 @@ class BucketGrid(object):
         # mass balance error [m]
         mbe = (self.WatSto - WatSto0)  + (self.WatStoTop - WatStoTop0) + (self.PondSto - PondSto0) \
             - (rr0 + retflow - tr - evap - drain - roff)
+            
         
         # append results to lists; use only for testing small grids!
         if hasattr(self, 'results'):
