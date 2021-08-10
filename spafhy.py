@@ -67,7 +67,7 @@ parameterization (multiple vegetation types) and fix in bucketgrid mass-balance 
 
 """
 
-def initialize(pgen, pcpy, pbu, ptop, psoil, gisdata, ncf=True,
+def initialize(pgen, pcpy, pbu, ptop, psoil, topsoil, gisdata, ncf=True,
                cpy_outputs=False, bu_outputs=False, top_outputs=False):
     """ 
     ******************** sets up SpaFHy  **********************
@@ -109,8 +109,7 @@ def initialize(pgen, pcpy, pbu, ptop, psoil, gisdata, ncf=True,
     # start_time = timeit.default_timer()
 
     # preprocess soildata --> dict used in BucketModel initialization    
-    soildata = preprocess_soildata(pbu, psoil, gisdata['soilclass'],
-                                   gisdata['cmask'], pgen['spatial_soil'])
+    soildata = preprocess_soildata(pbu, psoil, topsoil, gisdata, pgen['spatial_soil'])
 
     # inputs for CanopyGrid initialization: make sure vegetation data is masked by domain
     cstate = pcpy['state']

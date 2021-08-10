@@ -275,7 +275,7 @@ def read_SVE_runoff(ID, start_date,end_date, sourcefile):
         dat.columns = ['Qm']
     return dat
 
-def preprocess_soildata(pbu, psoil, soiltype, cmask, spatial=True):
+def preprocess_soildata(pbu, psoil, topsoil, gisdata, spatial=True):
     """
     creates input dictionary for initializing BucketGrid
     Args:
@@ -287,18 +287,27 @@ def preprocess_soildata(pbu, psoil, soiltype, cmask, spatial=True):
     # create dict for initializing soil bucket.
     # copy pbu into sdata and make each value np.array(np.shape(cmask))
     data = pbu.copy()
-    data.update((x, y*cmask) for x, y in data.items())
+    data.update((x, y*gisdata['cmask']) for x, y in data.items())
 
     if spatial:
         for key in psoil.keys():
             c = psoil[key]['soil_id']
-            ix = np.where(soiltype == c)
+            ix = np.where(gisdata['soilclass'] == c)
             data['poros'][ix] = psoil[key]['poros']
             data['fc'][ix] = psoil[key]['fc']
             data['wp'][ix] = psoil[key]['wp']
             data['ksat'][ix] = psoil[key]['ksat']
             data['beta'][ix] = psoil[key]['beta']
             del ix
+        for key, value in topsoil().items():
+            t = value['topsoil_id']
+            yx = np.where(gisdata['sitetype'] == t)
+            data['org_depth'][yx] = value['org_depth']
+            data['org_poros'][yx] = value['org_poros']
+            data['org_fc'][yx] = value['org_fc']
+            data['org_rw'][yx] = value['org_rw']
+            del yx
+        
 
         #data['soilcode'] = soiltype
     return data
@@ -372,6 +381,14 @@ def read_catchment_data(ID, fpath, plotgrids=False, plotdistr=False):
     # soil classificication: 1=coarse, 2=medium, 3=fine, 4=peat -1=water
     soilclass, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'soilclass.dat'))
 
+
+    try:
+        sitetype, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'sitetype.dat'))
+    except:
+        print('Constant sitetype')
+        sitetype = np.full_like(soilclass, 1.0)
+        
+        
     # update catchment mask so that water bodies are left out (SL 20.2.18)
     cmask[soilclass <= 0] = np.NaN
     soilclass = soilclass * cmask
@@ -428,7 +445,7 @@ def read_catchment_data(ID, fpath, plotgrids=False, plotdistr=False):
     
     # dict of all rasters
     gis = {'cmask': cmask, 'dem': dem, 'flowacc': flowacc, 'slope': slope,
-           'twi': twi, 'soilclass': soilclass, 'stream': stream,
+           'twi': twi, 'soilclass': soilclass, 'sitetype': sitetype, 'stream': stream,
            'LAI_pine': LAI_pine, 'LAI_spruce': LAI_spruce,
            'LAI_conif': LAI_pine + LAI_spruce,
            'LAI_decid': LAI_decid, 'LAI_shrub': LAI_shrub, 'LAI_grass': LAI_grass, 'hc': hc,

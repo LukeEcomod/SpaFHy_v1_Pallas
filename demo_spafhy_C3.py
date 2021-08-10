@@ -24,7 +24,7 @@ import pickle
 
 # import spafhy components
 import spafhy
-from spafhy_parameters import soil_properties, parameters
+from spafhy_parameters import soil_properties, parameters, topsoil
 from spafhy_io import read_catchment_data, read_FMI_weather, read_SVE_runoff
 
 eps = np.finfo(float).eps
@@ -34,6 +34,7 @@ eps = np.finfo(float).eps
 # load parameter dictionaries
 pgen, pcpy, pbu, ptop = parameters()
 psoil = soil_properties()
+
 
 # read gis data and create necessary inputs for model initialization
 gisdata = read_catchment_data(pgen['catchment_id'], fpath=pgen['gis_folder'],
@@ -46,7 +47,7 @@ gisdata = read_catchment_data(pgen['catchment_id'], fpath=pgen['gis_folder'],
 
 
 # initialize SpaFHy
-spa, ncf, ncf_file = spafhy.initialize(pgen, pcpy, pbu, ptop, psoil, gisdata,
+spa, ncf, ncf_file = spafhy.initialize(pgen, pcpy, pbu, ptop, psoil, topsoil, gisdata,
                                        ncf=True,
                                        cpy_outputs=False, 
                                        bu_outputs=False,

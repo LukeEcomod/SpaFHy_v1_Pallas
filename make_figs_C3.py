@@ -19,7 +19,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import matplotlib.colors as mplcolors
 import matplotlib.cm as mplcm
-
+import pandas as pd
+from spafhy_io import read_AsciiGrid
 import pickle
 from netCDF4 import Dataset #, date2num
 
@@ -77,6 +78,46 @@ dat = Dataset(ncf_file, 'r')
 cres = dat['cpy']   # canopy -submodel
 bres = dat['bu']    # bucket -submodel
 tres = dat['top']   # topmodel - submodel
+
+#%%
+
+# gis data plots
+
+# Plotting
+fig, axs = plt.subplots(nrows=1, ncols=6, figsize=(12,4));
+ax1 = axs[0]
+ax2 = axs[1]
+ax3 = axs[2]
+ax4 = axs[3]
+ax5 = axs[4]
+ax6 = axs[5]
+
+#fig.suptitle('Volumetric water content', fontsize=15)
+
+im1 = ax1.imshow(gis['dem'], cmap='coolwarm_r', aspect='equal')
+ax1.title.set_text('DEM')
+#ax1.text(175, 0, f'Wet day : {hi_day}', fontsize=12)
+im2 = ax2.imshow(gis['soilclass'])
+ax2.title.set_text('soil')
+
+im3 = ax3.imshow(gis['LAI_conif'], cmap='terrain')
+ax3.title.set_text('LAI conif')
+
+im4 = ax4.imshow(gis['LAI_decid'], cmap='terrain')
+ax4.title.set_text('LAI decid')
+
+im5 = ax5.imshow(gis['hc'], cmap='gray')
+ax5.title.set_text('canopy height')
+
+im6 = ax6.imshow(gis['cf'], cmap='summer')
+ax6.title.set_text('canopy fraction')
+
+ax1.axis("off")
+ax2.axis("off")
+ax3.axis("off")
+ax4.axis("off")
+ax5.axis("off")
+ax6.axis("off")
 
 
 #%% FIG. 9 long-term ET/P and components
@@ -461,216 +502,10 @@ soil0 = np.array(spa.GisData['soilclass'][f,g])
 LAI = LAIc + LAId
 lai0 = LAI[f,g]
 
-#%% soil moisture variability
-'''
-from soil_moisture_budget import time_stability
-
-
-# relative difference, MRD, std_MRD, rank-change index, mean theta, sigma theta, cv theta
-delta, delta_ave, delta_std, rci, wm, sigma, cv = time_stability(Wliq[yr == 0])      
-rci = rci / max(rci)  # normalize rci peak to 1
-wmd = np.percentile(Wliq[yr == 0], [10.0, 50.0, 90.0], axis=1)
-# range of W
-
-delta1, delta_ave1, delta_std1, rci1, wm1, sigma1, cv1 = time_stability(Wliq[yr == 1])      
-rci1 = rci1 / max(rci1)  # normalize rci peak to 1
-wmd1 = np.percentile(Wliq[yr == 1], [10.0, 50.0, 90.0], axis=1)
-
-fig1, ax = plt.subplots(2,2)
-fig1.set_size_inches(8, 8)
-
-# soil moisture timeseries
-ax[0,0].fill_between(doy0[yr == 0], wmd[0,:], wmd[2,:], color='k', alpha=0.2)# zorder=-10)
-ax[0,0].plot(doy0[yr==0], wm, 'k-', linewidth=1)
-
-ax[0,1].fill_between(doy0[yr == 1], wmd1[0,:], wmd1[2,:], color='k', alpha=0.2)
-ax[0,1].plot(doy0[yr==1], wm1, 'k-', linewidth=1)
-
-
-ax[0,0].set_ylabel(r'$\langle \theta \rangle $', fontsize=12)
-ax[0,0].set_title('2012: wet')
-ax[0,1].set_yticklabels([])
-ax[0,1].set_title('2013: dry')
-
-for tick in ax[0,0].get_xticklabels():
-        tick.set_rotation(30)
-ax[0,0].set_xticks(np.arange(30, 366, step=45))
-ax[0,0].set_ylim([0.1, 0.5]); ax[0,0].set_xlim([0, 366])
-ax[0,0].set_xlabel('doy')
-
-for tick in ax[0,1].get_xticklabels():
-        tick.set_rotation(30)
-ax[0,1].set_xticks(np.arange(30, 366, step=45))
-ax[0,1].set_ylim([0.1, 0.5]); ax[0,1].set_xlim([0, 366])
-ax[0,1].set_xlabel('doy')
-
-# get color
-
-cmap = mplcm.get_cmap('nipy_spectral')
-cc  = cmap(0.15)
-ax3=ax[0,0].twinx()
-ax3.plot(doy0[yr==0], sigma, color=cc, linestyle='--', linewidth=1)
-#ax3.set_ylabel(r'$\sigma_{\theta}$ (-)')# plt.ylim([0, 50])
-ax3.set_ylim([0.05, 0.14])
-#ax3.yaxis.set_ticks_position('right')
-ax3.set_yticklabels([])
-ax4=ax[0,1].twinx()
-ax4.plot(doy0[yr==1], sigma1, color=cc, linestyle='--', linewidth=1)
-ax4.set_ylabel(r'$\sigma_{\theta}$ (-)', fontsize=12) # plt.ylim([0, 50])
-ax4.set_ylim([0.05, 0.14])
-
-del cc
-
-ax[1,0].plot(wm, sigma, 'k-', alpha=0.5)
-sc = ax[1,0].scatter(wm, sigma, c=doy0[yr == 0], marker='o', edgecolor='k', alpha=0.8, s=40, vmin=1, vmax=365, cmap='nipy_spectral')
-ax[1,0].set_xlabel(r'$\langle \theta \rangle$', fontsize=12); 
-ax[1,0].set_ylabel(r'$\sigma_{\theta}$', fontsize=12);
-#plt.scatter(wm, cv, c=doy0[yr == 0], marker='o', edgecolor='k', alpha=0.5, s=40, vmin=1, vmax=365, cmap='gist_ncar')
-#plt.xlabel(r'$\langle \theta \rangle$'); plt.ylabel(r'$CV_{\theta}$'); plt.title('2012: wet')
-ax[1,0].text(0.12, 0.13, 'a)')
-ax[1,0].arrow(0.32, 0.12, -0.03, -0.01, color='k', alpha=0.5, head_width=0.005)
-ax[1,0].set_ylim([0.05, 0.14]);
-ax[1,0].set_xlim([0.1, 0.5])
-
-# plot colorbar as inset
-cbaxes = inset_axes(ax[1,0], width="10%", height="50%", loc=2) 
-cbar=fig.colorbar(sc, cax=cbaxes, orientation='vertical')
-cbar.ax.tick_params(labelsize=8)
-cbar.set_label('doy', rotation=90, fontsize=9)
-
-cbaxes.yaxis.set_ticks_position('right')
-#cb1 = plt.colorbar(sc); #cb1.ax.set_ylabel('doy')
-
-
-ax[1,1].plot(wm1, sigma1, 'k-', alpha=0.5) 
-sc1 = ax[1,1].scatter(wm1, sigma1, c=doy0[yr == 1], marker='o', edgecolor='k', alpha=0.8, s=40, vmin=1, vmax=365, cmap='nipy_spectral'); #map='gist_ncar')
-ax[1,1].set_xlabel(r'$\langle \theta \rangle$', fontsize=12);
-ax[1,1].yaxis.set_label_position("right")
-#plt.scatter(wm1, cv1, c=doy0[yr == 1], marker='o', edgecolor='k', alpha=0.5, s=40, vmin=1, vmax=365, cmap='gist_ncar')
-#plt.xlabel(r'$\langle \theta \rangle$'); plt.ylabel(r'$CV_{\theta}$'); plt.title('2013: dry')
-#plt.text(0.12, 0.65, 'c)')
-#plt.arrow(0.35, 0.35, -0.08, +0.1, color='k', alpha=0.5, head_width=0.01)
-#plt.arrow(0.18, 0.35, +0.05, -0.1, color='k', alpha=0.5, head_width=0.01)
-#plt.ylim([0.12, 0.7]); plt.xlim([0.1, 0.5])
-ax[1,1].text(0.12, 0.13, 'b)')
-ax[1,1].arrow(0.30, 0.11, -0.04, +0.0, color='k', alpha=0.5, head_width=0.005)
-#plt.arrow(0.18, 0.35, +0.05, -0.1, color='k', alpha=0.5, head_width=0.01)
-ax[1,1].set_ylim([0.05, 0.14]); 
-ax[1,1].yaxis.set_ticks_position('right')
-ax[1,1].set_ylabel(r'$\sigma_{\theta}$', fontsize=12)
-ax[1,1].set_xlim([0.1, 0.5])
-
-#plt.savefig('ch3_moisture_statistics.png', dpi=660)
-#plt.savefig('ch3_moisture_statistics.pdf')
-
-##%% soil moisture variability - more figures
-#
-##from soil_moisture_budget import time_stability
-#
-#
-## relative difference, MRD, std_MRD, rank-change index, mean theta, sigma theta, cv theta
-#delta, delta_ave, delta_std, rci, wm, sigma, cv = time_stability(Wliq[yr == 0])      
-#rci = rci / max(rci)  # normalize rci peak to 1
-#
-#delta1, delta_ave1, delta_std1, rci1, wm1, sigma1, cv1 = time_stability(Wliq[yr == 1])      
-#rci1 = rci1 / max(rci1)  # normalize rci peak to 1
-#
-#fig1, ax1 = plt.subplots(2,2)
-#fig1.set_size_inches(8, 8)
-#
-#plt.subplot(221);
-#plt.plot(wm, sigma, 'k-', alpha=0.5)
-#plt.scatter(wm, sigma, c=doy0[yr == 0], marker='o', edgecolor='k', alpha=0.5, s=40, vmin=1, vmax=365, cmap='gist_ncar')
-#plt.xlabel(r'$\langle \theta \rangle$'); plt.ylabel(r'$\sigma_{\theta}$'); plt.title('2012: wet')
-##plt.scatter(wm, cv, c=doy0[yr == 0], marker='o', edgecolor='k', alpha=0.5, s=40, vmin=1, vmax=365, cmap='gist_ncar')
-##plt.xlabel(r'$\langle \theta \rangle$'); plt.ylabel(r'$CV_{\theta}$'); plt.title('2012: wet')
-#plt.text(0.12, 0.13, 'a)')
-#plt.arrow(0.32, 0.12, -0.03, -0.01, color='k', alpha=0.5, head_width=0.005)
-#plt.ylim([0.05, 0.14]); 
-#plt.xlim([0.11, 0.5])
-#cb1 = plt.colorbar(); #cb1.ax.set_ylabel('doy')
-#
-#plt.subplot(222);
-#plt.plot(wm1, sigma1, 'k-', alpha=0.5) 
-#plt.scatter(wm1, sigma1, c=doy0[yr == 1], marker='o', edgecolor='k', alpha=0.5, s=40, vmin=1, vmax=365, cmap='gist_ncar')
-#plt.xlabel(r'$\langle \theta \rangle$'); plt.ylabel(r'$\sigma_{\theta}$'); plt.title('2012: wet')
-#
-##plt.scatter(wm1, cv1, c=doy0[yr == 1], marker='o', edgecolor='k', alpha=0.5, s=40, vmin=1, vmax=365, cmap='gist_ncar')
-##plt.xlabel(r'$\langle \theta \rangle$'); plt.ylabel(r'$CV_{\theta}$'); plt.title('2013: dry')
-##plt.text(0.12, 0.65, 'c)')
-##plt.arrow(0.35, 0.35, -0.08, +0.1, color='k', alpha=0.5, head_width=0.01)
-##plt.arrow(0.18, 0.35, +0.05, -0.1, color='k', alpha=0.5, head_width=0.01)
-##plt.ylim([0.12, 0.7]); plt.xlim([0.1, 0.5])
-#plt.text(0.12, 0.13, 'b)')
-#plt.arrow(0.30, 0.11, -0.04, +0.0, color='k', alpha=0.5, head_width=0.005)
-##plt.arrow(0.18, 0.35, +0.05, -0.1, color='k', alpha=0.5, head_width=0.01)
-#plt.ylim([0.05, 0.14]); 
-#plt.xlim([0.1, 0.5])
-#cb2 = plt.colorbar(); cb2.ax.set_ylabel('doy')
-##plt.subplot(223);
-##plt.plot(wm, sigma, 'k-', alpha=0.5)
-##plt.scatter(wm,  sigma, c=doy0[yr == 0], marker='o', edgecolor='k', s=40)
-##plt.xlabel(r'$\langle \theta \rangle$'); plt.ylabel(r'$\sigma_{theta}$'); plt.title('2012: wet')
-##plt.colorbar()
-##
-##plt.subplot(224);
-##plt.plot(wm1, sigma1, 'k-', alpha=0.5) 
-##plt.scatter(wm1, sigma1, c=doy0[yr == 1], marker='o', edgecolor='k', s=40)
-##plt.xlabel(r'$\langle \theta \rangle$'); plt.ylabel(r'$\sigma_{theta}$'); plt.title('2013: dry')
-##plt.colorbar()
-#
-##plt.figure()
-#
-#mark = ['s','o','h']
-#n = 0
-#for k in np.unique(soil0):
-#    f = np.where(soil0 == k)[0]
-#
-#    plt.subplot(223)
-#    plt.scatter(delta_ave[f], rci[f], c=twi0[f], marker=mark[n], edgecolor='k', s=40, alpha=0.5, cmap='coolwarm_r')
-#
-#    plt.subplot(224)
-#    plt.scatter(delta_ave1[f], rci1[f], c=twi0[f], marker=mark[n], edgecolor='k', s=40, alpha=0.5, cmap='coolwarm_r')
-#
-#    n += 1
-#    
-#plt.subplot(223)
-#plt.xlabel(r'MRD'); plt.ylabel('RCI'); plt.xlim([-0.2, 0.6]); plt.ylim([0, 1])
-#plt.text(-0.15, 0.9, 'b)')
-#cb3 = plt.colorbar(); #cb3.ax.set_ylabel('TWI')
-#
-#plt.subplot(224); 
-#plt.text(-0.15, 0.9, 'd)')
-#plt.xlabel(r'MRD'); plt.ylabel('RCI'); plt.xlim([-0.2, 0.6]); plt.ylim([0, 1])
-#cb4 = plt.colorbar(); cb4.ax.set_ylabel('TWI')
-#
-##plt.savefig(os.path.join(r'c:\ModelResults\Spathy\Figs','ch3_moisture_statistics.png'), dpi=660)
-##plt.savefig(os.path.join(r'c:\ModelResults\Spathy\Figs','ch3_moisture_statistics.pdf'))
-#
-#plt.figure()
-#
-#mark = ['s','o','h']
-#n = 0
-#for k in np.unique(soil0):
-#    f = np.where(soil0 == k)[0]
-#
-#    plt.subplot(223)
-#    plt.scatter(twi0[f], rci[f], c=lai0[f], marker=mark[n], edgecolor='k', s=40, alpha=0.5, cmap='coolwarm_r')
-#
-#    plt.subplot(224)
-#    plt.scatter(twi0[f], rci1[f], c=lai0[f], marker=mark[n], edgecolor='k', s=40, alpha=0.5, cmap='coolwarm_r')
-#
-#    n += 1
-#
-#plt.subplot(223); 
-#plt.xlabel(r'TWI'); plt.ylabel('RCI')
-#cb4 = plt.colorbar(); cb4.ax.set_ylabel('LAI')
-#plt.subplot(224); 
-#plt.xlabel(r'TWI'); plt.ylabel('RCI')
-#cb4 = plt.colorbar(); cb4.ax.set_ylabel('LAI')
-'''
 
 #%%
+
+# Kenttärova line plots spafhy vs. sensors
 
 import pandas as pd
 from spafhy_io import read_AsciiGrid
@@ -680,11 +515,9 @@ kenttarova, _, _, _, _ = read_AsciiGrid(r'C:\PALLAS_RAW_DATA\Lompolonjanka\16b\s
 kenttarova_loc = np.where(kenttarova == 0)
 kenttarova_loc = list([int(kenttarova_loc[0]), int(kenttarova_loc[1])])
 
-
 #sve_gtk_pintamaa, _, _, _, _ = read_AsciiGrid(r'C:\SpaFHy_v1_Pallas\data\C16\soilclass.dat')
 # kenttarova soilclass = 2
 soil2 = np.where((gis['soilclass'] == 2) & (gis['cmask'] == 1))
-
 
 # soilscouts at Kenttarova
 folder = r'C:\SpaFHy_v1_Pallas\data\obs'
@@ -692,7 +525,6 @@ soil_file = 'soilscouts_s3_s5_s18.csv'
 fp = os.path.join(folder, soil_file)
 soilscout = pd.read_csv(fp, sep=';', date_parser=['time'])
 soilscout['time'] = pd.to_datetime(soilscout['time'])
-
 
 # ec observation data
 ec_fp = r'C:\SpaFHy_v1_Pallas\data\obs\ec_soilmoist.csv'
@@ -738,6 +570,7 @@ Prec = FORC['Prec'][tm[0]:len(tm)+tm[0]]
 fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(16,4));
 ax1 = axs[0]
 ax2 = axs[1]
+
 
 l1 = ax1.plot(ecmoist['SH-5A'], marker='', color='black', linewidth=1, alpha=0.4)
 l2 = ax1.plot(ecmoist['SH-5B'], marker='', color='black', linewidth=1, alpha=0.6)
@@ -909,20 +742,20 @@ WB['P-Q-ET'] = WB['P'] - WB['Q'] - WB['ET']
 
 # sar soil moisture plots
 import pandas as pd
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import datetime as dt
 
 # define a big catchment mask
 from spafhy_io import read_AsciiGrid
-asc = read_AsciiGrid('C:\PALLAS_RAW_DATA\Lompolonjanka\cmask_iso_final.asc', setnans=True)
-asc = asc[0]
-#S = np.array(tres['S'])[f0:f1]  # saturation deficit 
+
+# cell locations of kenttarova
+kenttarova, _, _, _, _ = read_AsciiGrid(r'C:\PALLAS_RAW_DATA\Lompolonjanka\16b\sve_kenttarova_soilmoist.asc')
+kenttarova_loc = np.where(kenttarova == 0)
+kenttarova_loc = list([int(kenttarova_loc[0]), int(kenttarova_loc[1])])
 
 # reading sar data
-sar_path = r'C:\PALLAS_RAW_DATA\SAR_maankosteus\processed\SAR_PALLAS_2019_mask2.nc'
+sar_path = r'C:\PALLAS_RAW_DATA\SAR_maankosteus\processed\16m_nc_spafhy_pallas\SAR_PALLAS_2019_mask2_16m_direct_catchment.nc'
 sar = Dataset(sar_path, 'r')
 
-sar_wliq = sar['soilmoisture']
+sar_wliq = sar['soilmoisture']*gis['cmask']/100
 spa_wliq = bres['Wliq']
 spa_wliq_top = bres['Wliq_top']
 spa_S = tres['S']
@@ -931,53 +764,34 @@ dates_sar = sar['time'][:]
 dates_sar = pd.to_datetime(dates_sar, format='%Y%m%d') 
 dates_spa = tvec
 
-sarlat = list(np.array(sar['lat'][:]))
-sarlon = list(np.array(sar['lon'][:]))
-spalat = list(np.array(dat['lat'][:]))
-spalon = list(np.array(dat['lon'][:]))
-
-# find the mutual in sar
-sarlatmin = sarlat.index(min(spalat))
-sarlatmax = sarlat.index(max(spalat))
-sarlonmin = sarlon.index(min(spalon))
-sarlonmax = sarlon.index(max(sarlon))
-
-# find the mutual in spa
-spalonmax = spalon.index(max(sarlon))
-
 # driest and wettest days
 sarsum = np.nansum(sar_wliq, axis=1)
 sarsum = np.nansum(sarsum, axis=1)
 
-
 # index in sar data
 sar_low = int(np.where(sarsum == np.nanmin(sarsum))[0])
 sar_hi = int(np.where(sarsum == np.nanmax(sarsum))[0])
+sar_low = 43
 sar_hi = 20
 # day in sar data
 low_day = dates_sar[sar_low].strftime("%Y-%m-%d")
 hi_day = dates_sar[sar_hi].strftime("%Y-%m-%d")
-
 
 # index in spa data
 spa_low = np.where(tvec == low_day)[0][0]
 spa_hi = np.where(tvec == hi_day)[0][0]
 
 # sar dry and wet
-sar_kosteus_hi = sar_wliq * asc
-sar_kosteus_low = sar_wliq * asc
-sar_kosteus_hi = sar_kosteus_hi[sar_hi, sarlatmax:sarlatmin, sarlonmin:sarlonmax]
-sar_kosteus_low = sar_kosteus_low[sar_low, sarlatmax:sarlatmin, sarlonmin:sarlonmax]
-sar_kosteus_hi = sar_kosteus_hi / 100
-sar_kosteus_low = sar_kosteus_low / 100
+sar_kosteus_hi = sar_wliq[sar_hi,:,:]
+sar_kosteus_low = sar_wliq[sar_low, :,:]
 sar_kosteus_hi[sar_kosteus_hi == 0] = np.nan
 sar_kosteus_low[sar_kosteus_low == 0] = np.nan
 
 # spa dry and wet
-spa_kosteus_hi = spa_wliq[spa_hi, :, 0:spalonmax]
-spa_kosteus_low = spa_wliq[spa_low, :, 0:spalonmax]
-spa_kosteus_hitop = spa_wliq_top[spa_hi, :, 0:spalonmax]
-spa_kosteus_lowtop  = spa_wliq_top[spa_low, :, 0:spalonmax]
+spa_kosteus_hi = spa_wliq[spa_hi, :,:]
+spa_kosteus_low = spa_wliq[spa_low, :,:]
+spa_kosteus_hitop = spa_wliq_top[spa_hi, :, :]
+spa_kosteus_lowtop  = spa_wliq_top[spa_low, :,:]
 
 spa_S_hi = 1e3*spa.top.local_s(spa_S[spa_hi-365])
 spa_S_hi[spa_S_hi<0] = 0.0
@@ -986,12 +800,8 @@ spa_S_low = 1e3*spa.top.local_s(spa_S[spa_low-365])
 spa_S_low[spa_S_low<0] = 0.0
 spa_S_low = spa._to_grid(spa_S_low)
 
-#spa_S_hi = spa_S[spa_hi, :, 0:spalonmax]
-#spa_S_low = spa_S[spa_low, :, 0:spalonmax]
-
-
 # Plotting
-fig, axs = plt.subplots(nrows=2, ncols=3, figsize=(18,12));
+fig, axs = plt.subplots(nrows=2, ncols=3, figsize=(16,12));
 ax1 = axs[0][0]
 ax2 = axs[0][1]
 ax3 = axs[1][0]
@@ -1003,14 +813,16 @@ ax6 = axs[1][2]
 
 im1 = ax1.imshow(sar_kosteus_hi, cmap='coolwarm_r', vmin=0.0, vmax=1.0, aspect='equal')
 ax1.title.set_text('SAR')
-ax1.text(300, -30, f'Wet day : {hi_day}', fontsize=12)
+ax1.text(175, 0, f'Wet day : {hi_day}', fontsize=12)
+#ax1.plot(kenttarova_loc[0], kenttarova_loc[1], marker='o', mec='b', mfc='k', alpha=0.8, ms=6.0)
 
 im2 = ax2.imshow(spa_kosteus_hi, cmap='coolwarm_r', vmin=0.0, vmax=1.0, aspect='equal')
 ax2.title.set_text('SPAFHY rootzone')
+#ax2.plot(kenttarova_loc[0], kenttarova_loc[1], marker='o', mec='b', mfc='k', alpha=0.8, ms=6.0)
 
 im3 = ax3.imshow(sar_kosteus_low, cmap='coolwarm_r', vmin=0.0, vmax=1.0, aspect='equal')
 ax3.title.set_text('SAR')
-ax3.text(300, -30, f'Dry day : {low_day}', fontsize=12)
+ax3.text(175, 0, f'Dry day : {low_day}', fontsize=12)
 
 im4 = ax4.imshow(spa_kosteus_low, cmap='coolwarm_r', vmin=0.0, vmax=1.0, aspect='equal')
 ax4.title.set_text('SPAFHY rootzone')
@@ -1044,21 +856,13 @@ if saveplots == True:
     plt.savefig(f'SAR_vs.SPAFHY_soilmoist_{today}.pdf')
     plt.savefig(f'SAR_vs.SPAFHY_soilmoist_{today}.png')
 
-'''
-fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(12,5));
-ax1 = axs[0]
-ax2 = axs[1]
 
-sns.heatmap(kosteus_temp,ax=ax1, cmap='coolwarm', mask=(kosteus_temp == 0), cbar=True, vmin=0.0, vmax=1.0, xticklabels=False, yticklabels=False);
-ax1.title.set_text('SAR')
-sns.heatmap(br_temp,ax=ax2, cmap='coolwarm',cbar=True, vmin=0.0, vmax=1.0, xticklabels=False, yticklabels=False);
-ax2.title.set_text('SPAFHY')
-fig.suptitle(f'Volumetric water content : {date_min}')
 
-'''
+
+
 #%%
 
-# saturation ratio based on previous days
+# normalized based on maximums
 
 spa_wliq = bres['Wliq']
 spa_wliq_top = bres['Wliq_top']
@@ -1129,6 +933,219 @@ if saveplots == True:
 
 #%%
 
+# Q-Q plots
+
+import numpy as np 
+import pylab 
+import scipy.stats as stats
+import pandas as pd
+
+from spafhy_io import read_AsciiGrid
+asc = read_AsciiGrid('C:\PALLAS_RAW_DATA\Lompolonjanka\cmask_iso_final2.asc', setnans=True)
+asc = asc[0]
+
+# reading sar data
+sar_path = r'C:\PALLAS_RAW_DATA\SAR_maankosteus\processed\SAR_PALLAS_2019_mask2.nc'
+sar = Dataset(sar_path, 'r')
+sar_wliq = sar['soilmoisture']
+sar_wliq = sar_wliq * asc
+spa_wliq_top = bres['Wliq_top']
+spa_wliq = bres['Wliq']
+
+ind = np.where(np.isin(tvec, dates_sar))
+ind = list(np.array(ind)[0][:])
+
+sar_wliq = sar_wliq[:, sarlatmax:sarlatmin+1, sarlonmin:sarlonmax+1]
+spa_wliq = spa_wliq[ind, :, 0:spalonmax+1]
+spa_wliq_top = spa_wliq_top[ind, :, 0:spalonmax+1]
+
+sar_flat = sar_wliq.flatten()
+#sar_flat[np.where(sar_flat <= 0)] = np.nan
+spa_flat = spa_wliq.flatten()
+spa_top_flat = spa_wliq_top.flatten()
+
+flat_pd = pd.DataFrame()
+flat_pd['sar'] = sar_flat/100
+flat_pd['spa'] = spa_flat
+flat_pd['spa_top'] = spa_top_flat
+flat_pd = flat_pd.loc[np.isfinite(flat_pd['sar']) & np.isfinite(flat_pd['spa']) & np.isfinite(flat_pd['spa_top'])]
+flat_pd = flat_pd.loc[(flat_pd['spa'] > 0) & (flat_pd['spa'] < 1)]
+
+#g = sns.scatterplot(flat_pd['sar'], flat_pd['spa'], alpha=0.0001, s=2)
+#g.set(ylim=(-0.1, 1.0))
+#g.set(xlim=(-0.1, 1.0))
+
+x = sns.regplot(x=flat_pd['sar'], y=flat_pd['spa'], scatter_kws={'s':1, 'alpha':0.01}, line_kws={"color": "red"})
+x.set(ylim=(0, 1))
+x.set(xlim=(0, 1))
+
+if saveplots == True:
+    plt.savefig(f'sar_spa_qq_{today}.pdf')
+    
+#%%
+
+# kenttärova point plots
+# peat point plots
+import numpy as np 
+import pylab 
+import scipy.stats as stats
+import pandas as pd
+
+from spafhy_io import read_AsciiGrid
+
+# cell locations of kenttarova
+kenttarova, _, _, _, _ = read_AsciiGrid(r'C:\PALLAS_RAW_DATA\Lompolonjanka\16b\sve_kenttarova_soilmoist.asc')
+kenttarova_loc = np.where(kenttarova == 0)
+kenttarova_loc = list([int(kenttarova_loc[1]), int(kenttarova_loc[0])])
+asc = read_AsciiGrid('C:\PALLAS_RAW_DATA\Lompolonjanka\cmask_iso_final2.asc', setnans=True)
+asc = asc[0]
+
+# ec observation data
+ec_fp = r'C:\SpaFHy_v1_Pallas\data\obs\ec_soilmoist.csv'
+ecmoist = pd.read_csv(ec_fp, sep=';', date_parser=['time'])
+ecmoist['time'] = pd.to_datetime(ecmoist['time'])
+ecmoist = ecmoist[(ecmoist['time'] >= dates_sar[0]) & (ecmoist['time'] <= dates_sar[-1])]
+
+# soilscouts at Kenttarova
+folder = r'C:\SpaFHy_v1_Pallas\data\obs'
+soil_file = 'soilscouts_s3_s5_s18.csv'
+fp = os.path.join(folder, soil_file)
+soilscout = pd.read_csv(fp, sep=';', date_parser=['time'])
+soilscout['time'] = pd.to_datetime(soilscout['time'])
+soilscout = soilscout[(soilscout['time'] >= dates_sar[0]) & (soilscout['time'] <= dates_sar[-1])]
+soilscout.index = soilscout['time']
+
+
+# reading sar data
+sar_path = r'C:\PALLAS_RAW_DATA\SAR_maankosteus\processed\SAR_PALLAS_2019_mask2.nc'
+sar = Dataset(sar_path, 'r')
+sar_wliq = sar['soilmoisture']
+sar_wliq = sar_wliq * asc
+spa_wliq_top = bres['Wliq_top']
+spa_wliq = bres['Wliq']
+
+ind = np.where(np.isin(tvec, dates_sar))
+ind = list(np.array(ind)[0][:])
+
+
+Prec = FORC['Prec'][ind]
+sar_wliq = sar_wliq[:, sarlatmax:sarlatmin+1, sarlonmin:sarlonmax+1]
+spa_wliq = spa_wliq[ind, :, 0:spalonmax+1]
+spa_wliq_top = spa_wliq_top[ind, :, 0:spalonmax+1]
+
+kr_point = pd.DataFrame()
+kr_point['time'] = dates_sar
+kr_point['sar_wliq_kr'] = sar_wliq[:,kenttarova_loc[0], kenttarova_loc[1]]/100
+kr_point['spa_wliq_kr'] = spa_wliq[:,kenttarova_loc[0], kenttarova_loc[1]]
+kr_point['spa_wliq_top_kr'] = spa_wliq_top[:,kenttarova_loc[0], kenttarova_loc[1]]
+kr_point['prec'] = Prec
+kr_point['sar_wliq_lv'] = sar_wliq[:,45,55]/100
+kr_point['spa_wliq_lv'] = spa_wliq[:,45,55]
+kr_point.index = kr_point['time']
+
+
+kr_point['sar_wliq_lv'] = np.nanmean(sar_wliq[:,(45-1, 45, 45+1, 45, 45, 45),
+                    (55, 55, 55, 55-1, 55, 55+1)], axis=1)/100
+
+kr_point['sar_wliq_kr'] = np.nanmean(sar_wliq[:,(kenttarova_loc[0]-1, kenttarova_loc[0], kenttarova_loc[0]+1, kenttarova_loc[0], kenttarova_loc[0], kenttarova_loc[0]),
+                    (kenttarova_loc[1], kenttarova_loc[1], kenttarova_loc[1], kenttarova_loc[1]-1, kenttarova_loc[1], kenttarova_loc[1]+1)], axis=1)/100
+
+
+# Plotting
+fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(7,5));
+ax1 = axs[0]
+ax2 = axs[1]
+
+
+l1 = ax1.plot(kr_point['sar_wliq_kr'], marker='', color='black', linewidth=1, alpha=0.9)
+#l2 = ax1.plot(kr_point['spa_wliq_top_kr'], marker='', color='red', linewidth=1, alpha=0.3)
+#ax.fill_between(l1, l2, color='grey', alpha='0.5')
+l3 = ax1.plot(kr_point['spa_wliq_kr'], marker='', color='red', linewidth=1, alpha=1.0)
+l6 = ax1.plot(soilscout['s3'],marker='', color='blue', linewidth=1, alpha=1.0 )
+ax1.text(kr_point['time'][-12], 0.9, 'Kenttärova')
+ax1.legend(['SAR ~-5cm', 'SpaFHy rootzone -40cm', 'Moisture sensor ~-5cm'], bbox_to_anchor =(1.0, 1.3), ncol = 3)
+l4 = ax1.plot(kr_point['time'][sar_low], kr_point['sar_wliq_kr'][sar_low], marker='o', mec='r', mfc='k', alpha=0.8, ms=6.0)
+l4 = ax1.plot(kr_point['time'][sar_hi], kr_point['sar_wliq_kr'][sar_hi], marker='o', mec='b', mfc='k', alpha=0.8, ms=6.0)
+ax1.set_ylim(0,1.0)
+ax1.set_ylabel('Volumetric water content')
+ax1.xaxis.set_visible(False)
+#ax1.legend(['SAR', 'SpaFHy rootzone'], bbox_to_anchor =(0.75, 1.15), ncol = 4)
+
+l4 = ax2.plot(kr_point['sar_wliq_lv'], marker='', color='black', linewidth=1, alpha=0.9)
+l7 = ax2.plot(kr_point['spa_wliq_lv'], marker='', color='red', linewidth=1, alpha=1.0)
+l4 = ax2.plot(kr_point['time'][sar_low], kr_point['sar_wliq_lv'][sar_low], marker='o', mec='r', mfc='k', alpha=0.8, ms=6.0)
+l4 = ax2.plot(kr_point['time'][sar_hi], kr_point['sar_wliq_lv'][sar_hi], marker='o', mec='b', mfc='k', alpha=0.8, ms=6.0)
+ax2.text(kr_point['time'][-12], 0.9, 'Lompolonjänkä')
+ax2.set_ylim(0,1.0)
+ax2.set_ylabel('Volumetric water content')
+
+#for tick in ax1.get_xticklabels():
+#        tick.set_rotation(30)
+for tick in ax2.get_xticklabels():
+        tick.set_rotation(30)
+        '''
+ax1=ax1.twinx()   
+ax1.bar(Prec.index, 3600*24.0*Prec, color='blue', width=1)
+ax1.set_ylabel(r'P (mm d$^{-1}$)')
+ax1.set_ylim([0, 70])
+ax1.invert_yaxis()
+
+ax2=ax2.twinx()   
+ax2.bar(Prec.index, 3600*24.0*Prec, color='blue', width=1)
+ax2.set_ylabel(r'P (mm d$^{-1}$)')
+ax2.set_ylim([0, 70])
+ax2.invert_yaxis()
+'''
+if saveplots == True:
+    plt.savefig(f'soilmoist_kenttarova_spa_sar_{today}.pdf')
+    plt.savefig(f'soilmoist_kenttarova_spa_sar_{today}.png')
+
+#%%
+
+# S1 kaistat
+# soilscouts at Kenttarova
+folder = r'C:\PALLAS_RAW_DATA\SAR_maankosteus\muut'
+S1_file = 'S1_ajat_kaistat.txt'
+fp = os.path.join(folder, S1_file)
+S1 = pd.read_csv(fp, sep=',', delim_whitespace=True, date_parser=['Date'])
+S1 = S1[['Date', 'Time', '(Julian']]
+S1 = S1.rename(columns={'(Julian': 'SwathPass', 'Time': 'Julian day'})
+
+S1['SwathPass'] == '*m'
+
+#%%
+
+# define a big catchment mask
+from spafhy_io import read_AsciiGrid
+asc = read_AsciiGrid('C:\SpaFHy_v1_Pallas\data\C16\maintype.dat', setnans=True)
+
+# Plotting
+fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(12,6));
+ax1 = axs[0]
+ax2 = axs[1]
+
+im1 = ax2.imshow(asc[0], cmap='plasma')
+ax1.title.set_text('SPAFHY topsoil moisture on wet day')
+im2 = ax1.imshow(spa_kosteus_hitop, cmap='coolwarm_r', vmin=0.0, vmax=1.0, aspect='equal')
+ax2.title.set_text('Site main class 1-4')
+ax2.axis('off')
+
+cbar = fig.colorbar(im1, ticks=[1, 2, 3, 4], orientation='horizontal')
+cbar.ax.set_xticklabels(['mineral soil', 'fen', 'peatland', 'open mire'])  # horizontal colorbar
+
+#fig.subplots_adjust(right=0.8)
+#cbar_ax = fig.add_axes([0.83, 0.15, 0.015, 0.7])
+#bar1 = fig.colorbar(im2, cax=cbar_ax)
+fig.subplots_adjust(right=0.8)
+cbar_ax = fig.add_axes([0.05, 0.15, 0.015, 0.7])
+bar2 = fig.colorbar(im2, cax=cbar_ax)
+
+if saveplots == True:
+    plt.savefig(f'SPATOPSOIL_KASVUPAIKKA_{today}.png')
+    
+    
+    
+#%%
 
 from spafhy_io import read_AsciiGrid
 
@@ -1145,34 +1162,338 @@ IE = np.array(cres['Evap'][tm,kenttarova_loc[0], kenttarova_loc[1]])# intercepti
 ET = TR + EF + IE
 
 ET = np.array(cres['ET'][tm,kenttarova_loc[0], kenttarova_loc[1]])
+    
+
+#%%
+
+# sar vs spa soil moisture timelapse
+import pandas as pd
+import matplotlib.animation as animation
+import matplotlib.gridspec as gridspec
+
+
+# define a big catchment mask
+from spafhy_io import read_AsciiGrid
+asc = read_AsciiGrid('C:\PALLAS_RAW_DATA\Lompolonjanka\cmask_iso_final2.asc', setnans=True)
+asc = asc[0]
+
+# reading sar data
+sar_path = r'C:\PALLAS_RAW_DATA\SAR_maankosteus\processed\SAR_PALLAS_2019_mask2_resampled16b.nc'
+#sar_path = r'C:\PALLAS_RAW_DATA\SAR_maankosteus\processed\SAR_PALLAS_2019_mask2.nc'
+sar = Dataset(sar_path, 'r')
+sar_wliq = sar['soilmoisture']
+spa_wliq = bres['Wliq']
+spa_wliq_top = bres['Wliq_top']
+spa_S = tres['S']
+# dates
+dates_sar = sar['time'][:]
+dates_sar = pd.to_datetime(dates_sar, format='%Y%m%d') 
+dates_spa = tvec
+days = dates_sar.strftime("%Y-%m-%d")
+
+# date indexes of spa
+ind_day = np.where(np.isin(dates_spa, dates_sar))
+ind_day = list(np.array(ind_day)[0][:])
+# lat lon indexes
+sarlat = list(np.array(sar['lat'][:]))
+sarlon = list(np.array(sar['lon'][:]))
+spalat = list(np.array(dat['lat'][:]))
+spalon = list(np.array(dat['lon'][:]))
+
+# find the mutual in sar
+sarlatmin = sarlat.index(min(spalat))
+sarlatmax = sarlat.index(max(spalat))
+sarlonmin = sarlon.index(min(spalon))
+sarlonmax = sarlon.index(max(sarlon))
+
+# find the mutual in spa
+spalonmax = spalon.index(max(sarlon))
+
+# mutual lat lons and days
+sar_kosteus = sar_wliq * asc
+sar_kosteus = sar_kosteus[:, sarlatmax:sarlatmin+1, sarlonmin:sarlonmax+1]
+sar_kosteus = sar_kosteus / 100
+sar_kosteus[sar_kosteus == 0] = np.nan
+spa_kosteus = spa_wliq[ind_day, :, 0:spalonmax+1]
+spa_kosteus_top = spa_wliq_top[ind_day, :, 0:spalonmax+1]
+
+# data for discharge and precipiatio 
+start = days[0]
+end = days[-1]
+f0 = int(np.where(tvec == start)[0])
+f1 = int(np.where(tvec == end)[0])
+tvec0 = tvec[f0:f1]
+tvec0_ind = np.where(np.isin(tvec0, dates_sar))
+tvec0_ind = list(np.array(tvec0_ind)[0][:])
+
+Qt = pd.DataFrame()
+Qt['Q'] = 1e3*np.array(tres['Qt'])[f0:f1] # modeled streamflow
+Qt.index = pd.to_datetime(tvec[f0:f1])
+Qm = Qmeas[(Qmeas.index >= start) & (Qmeas.index < end) ]
+Prec = FORC['Prec'].iloc[f0:f1] # precipitation
+
+f, g = np.where(spa.GisData['cmask'] == 1)
+
+# data for soil moisture and precipitation
+# these are from previous code snipped where kenttärova point plots are
+ecmoist = ecmoist.loc[(ecmoist['time'] >= start) & (ecmoist['time'] <= end)]
+soilscout = soilscout.loc[(soilscout['time'] >= start) & (soilscout['time'] <= end)]
+Wliq_final = Wliq_final.loc[(Wliq_final['time'] >= start) & (Wliq_final['time'] <= end)]
+
+
+### TIMELAPSE PLOT
+fps = 2
+nSeconds = 30
+snapshots1 = sar_kosteus
+snapshots2 = spa_kosteus
+snapshots3 = spa_kosteus_top
+'''
+# First set up the figure, the axis, and the plot element we want to animate
+fig, axs = plt.subplots(nrows=2, ncols=3, figsize=(18,12));
+ax1 = axs[0][0]
+ax2 = axs[0][1]
+ax3 = axs[0][2]
+ax4 = axs[1][0]
+ax5 = axs[1][1]
+ax6 = axs[1][2]
+'''
+
+fig = plt.figure(figsize=(18,10))
+gs = fig.add_gridspec(3, 6)
+ax1 = fig.add_subplot(gs[0:2, 0:2])
+#f3_ax1.set_title('gs[1, :-1]')
+ax2 = fig.add_subplot(gs[0:2, 2:4])
+#f3_ax2.set_title('gs[1:, -1]')
+ax3 = fig.add_subplot(gs[0:2, 4:6])
+#f3_ax3.set_title('gs[-1, 0]')
+ax5 = fig.add_subplot(gs[2, 0:6])
+#f3_ax4.set_title('gs[1, :]')
+
+
+a1 = snapshots1[0]
+a2 = snapshots2[0]
+a3 = snapshots3[0]
+
+im1 = ax1.imshow(a1, cmap='coolwarm_r', interpolation='none', aspect='auto', vmin=0, vmax=1)
+ax1.title.set_text('SAR')
+ttl = ax1.text(260, -20, f'Soil volumetric water content {days[0]}', fontsize=12)
+im2 = ax2.imshow(a2, cmap='coolwarm_r', interpolation='none', aspect='auto', vmin=0, vmax=1)
+ax2.title.set_text('SPAFHY ROOT')
+im3 = ax3.imshow(a3, cmap='coolwarm_r', interpolation='none', aspect='auto', vmin=0, vmax=1)
+ax3.title.set_text('SPAFHY TOP')
+
+#im4 = ax5.plot(Qm, 'k-', linewidth=1.0, markersize=4)
+#im4 = ax5.plot(Qt, 'r-', linewidth=1.0, markersize=4)
+im4 = ax5.plot(soilscout['s18'], 'k-', linewidth=1.0, markersize=4)
+im4 = ax5.plot(Wliq_final['root_kr'], 'r-', linewidth=1.0, markersize=4)
+
+line, = ax5.plot(tvec0[tvec0_ind[0]], 0.15, marker='o', mec='k', mfc='g', alpha=0.7, ms=8.0)
+ax5.title.set_text('Measured and modeled soil moisture at Kenttärova')
+
+ax5.set_ylim(0.1, 0.6)
+ax5.legend(['measured', 'modeled'], bbox_to_anchor =(0.11, 0.97), ncol = 1) 
+ax5.set_ylabel(r'$\langle Q_f \rangle$ (mm d$^{-1}$)')
+ax5.set_ylabel(r'Volumetric water content')
+ax7=ax5.twinx()   
+ax7.bar(tvec0, 3600*24.0*Prec, color='b', width=0.5)
+ax7.set_ylabel(r'P (mm d$^{-1}$)'); plt.ylim([0, 60])
+ax7.invert_yaxis()
+for tick in ax5.get_xticklabels():
+        tick.set_rotation(30)
+
+ax1.axis("off")
+ax2.axis("off")
+ax3.axis("off")
+ax4.axis("off")
+
+fig.subplots_adjust(right=0.8)
+cbar_ax = fig.add_axes([0.83, 0.45, 0.015, 0.4])
+bar1 = fig.colorbar(im1, cax=cbar_ax)
+
+def animate_func(i):
+    im1.set_array(snapshots1[i])
+    im2.set_array(snapshots2[i])
+    im3.set_array(snapshots3[i])
+    ttl.set_text(f'Soil volumetric water content {days[i]}')
+    #ttl.set_text(days[i])
+    day = tvec0[tvec0_ind[i]]
+    line.set_data(day, 0.15)
+    return [im1]
+
+anim = animation.FuncAnimation(
+                               fig, 
+                               animate_func, 
+                               frames = nSeconds * fps,
+                               interval = 1000 / fps, # in ms
+                               )
+
+anim.save('sar_spafhy_tl.gif', fps=fps)
+#anim.save('sar_spafhy_tl.mp4', fps=fps, extra_args=['-vcodec', 'libx264'])
 
 
 #%%
 
-# define a big catchment mask
+import pandas as pd
 from spafhy_io import read_AsciiGrid
-asc = read_AsciiGrid('C:\SpaFHy_v1_Pallas\data\C16\maintype.dat', setnans=True)
+
+# cell locations of kenttarova
+kenttarova, _, _, _, _ = read_AsciiGrid(r'C:\PALLAS_RAW_DATA\Lompolonjanka\16b\sve_kenttarova_soilmoist.asc')
+kenttarova_loc = np.where(kenttarova == 0)
+kenttarova_loc = list([int(kenttarova_loc[0]), int(kenttarova_loc[1])])
+
+#sve_gtk_pintamaa, _, _, _, _ = read_AsciiGrid(r'C:\SpaFHy_v1_Pallas\data\C16\soilclass.dat')
+# kenttarova soilclass = 2
+#soil2 = np.where((gis['soilclass'] == 2) & (gis['cmask'] == 1))
+
+#skip warm up
+tm = range(365,(len(dat['time'][:])))
+
+# SpaFHy rootzone and top soil moisture
+Wliq_root = np.array(bres['Wliq'][tm])
+Wliq_top = np.array(bres['Wliq_top'][tm])
+
+# Both at kenttärova and mean in soilclass 2
+Wliq_root_kr = Wliq_root[:, kenttarova_loc[0], kenttarova_loc[1]]
+Wliq_top_kr = Wliq_top[:, kenttarova_loc[0], kenttarova_loc[1]]
+
+# Wliq means within the soilclass 2
+Wliq_root_mean = Wliq_root[:,soil2[0],soil2[1]]
+Wliq_root_mean = np.nanmean(Wliq_root_mean, axis=(1))
+Wliq_top_mean = Wliq_top[:,soil2[0],soil2[1]]
+Wliq_top_mean = np.nanmean(Wliq_top_mean, axis=(1))
+
+# new dataframe for spafhy data
+Wliq_final = pd.DataFrame()
+Wliq_final['time'] = tvec[tm]
+Wliq_final['root_kr'] = Wliq_root_kr
+Wliq_final['root_mean'] = Wliq_root_mean
+Wliq_final['top_kr'] = Wliq_top_kr
+Wliq_final['top_mean'] = Wliq_top_mean
+    
+# indexes as dates
+soilscout.index = soilscout['time']
+ecmoist.index = ecmoist['time']
+Wliq_final.index = Wliq_final['time']
+
+Prec = FORC['Prec'][tm[0]:len(tm)+tm[0]]
 
 # Plotting
-fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(12,6));
+fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(16,4));
 ax1 = axs[0]
 ax2 = axs[1]
 
-im1 = ax2.imshow(asc[0], cmap='plasma')
-ax1.title.set_text('SPAFHY topsoil moisture on wet day')
-im2 = ax1.imshow(spa_kosteus_hitop, cmap='coolwarm_r', vmin=0.0, vmax=1.0, aspect='equal')
-ax2.title.set_text('Kasvupaikan paatyyppi 1-4')
 
-cbar = fig.colorbar(im1, ticks=[1, 2, 3, 4], orientation='horizontal')
-cbar.ax.set_xticklabels(['kivennäismaa', 'korpi', 'räme', 'avosuo'])  # horizontal colorbar
+l1 = ax1.plot(ecmoist['SH-5A'], marker='', color='black', linewidth=1, alpha=0.4)
+l2 = ax1.plot(ecmoist['SH-5B'], marker='', color='black', linewidth=1, alpha=0.6)
+l3 = ax1.plot(soilscout['s3'], marker='', color='black', linewidth=1, alpha=0.2) #-0.05
+#ax.fill_between(l1, l2, color='grey', alpha='0.5')
+l3 = ax1.plot(Wliq_final['top_kr'], marker='', color='red', linewidth=1, alpha=0.7)
+ax1.set_ylim(0,0.70)
+ax1.set_ylabel('Volumetric water content')
+ax1.legend(['5A = -0.05', '5B = -0.05', 's3 = -0.05', 'Wliq_top'], bbox_to_anchor =(0.95, 1.15), ncol = 4)
 
-#fig.subplots_adjust(right=0.8)
-#cbar_ax = fig.add_axes([0.83, 0.15, 0.015, 0.7])
-#bar1 = fig.colorbar(im2, cax=cbar_ax)
-fig.subplots_adjust(right=0.8)
-cbar_ax = fig.add_axes([0.05, 0.15, 0.015, 0.7])
-bar2 = fig.colorbar(im2, cax=cbar_ax)
+l4 = ax2.plot(ecmoist['SH-20A'], marker='', color='black', linewidth=1, alpha=0.4)
+l5 = ax2.plot(ecmoist['SH-20B'], marker='', color='black', linewidth=1, alpha=0.6)
+l6 = ax2.plot(soilscout['s18'], marker='', color='black', linewidth=1, alpha=0.2)
+#ax.plot(soilscout['s18'], marker='', color='blue', linewidth=1)
+l7 = ax2.plot(Wliq_final['root_kr'], marker='', color='red', linewidth=1, alpha=0.7)
+ax2.set_ylim(0,0.70)
+ax2.set_ylabel('Volumetric water content')
+ax2.legend(['20A = -0.20', '20B = -0.20', 's18 = -0.20', 'Wliq_root'], bbox_to_anchor =(0.95, 1.15), ncol = 4)
+
+for tick in ax1.get_xticklabels():
+        tick.set_rotation(30)
+for tick in ax2.get_xticklabels():
+        tick.set_rotation(30)
+        
+ax1=ax1.twinx()   
+ax1.bar(Prec.index, 3600*24.0*Prec, color='blue', width=1)
+ax1.set_ylabel(r'P (mm d$^{-1}$)')
+ax1.set_ylim([0, 70])
+ax1.invert_yaxis()
+
+ax2=ax2.twinx()   
+ax2.bar(Prec.index, 3600*24.0*Prec, color='blue', width=1)
+ax2.set_ylabel(r'P (mm d$^{-1}$)')
+ax2.set_ylim([0, 70])
+ax2.invert_yaxis()
 
 if saveplots == True:
-    plt.savefig(f'SPATOPSOIL_KASVUPAIKKA_{today}.png')
+    plt.savefig(f'soilmoist_kenttarova_{today}.pdf')
+    plt.savefig(f'soilmoist_kenttarova_{today}.png')
+
+#%%
+
+# ET simulated vs. measured
+
+# cell locations of kenttarova
+kenttarova, _, _, _, _ = read_AsciiGrid(r'C:\PALLAS_RAW_DATA\Lompolonjanka\16b\sve_kenttarova_soilmoist.asc')
+kenttarova_loc = np.where(kenttarova == 0)
+kenttarova_loc = list([int(kenttarova_loc[0]), int(kenttarova_loc[1])])
+
+TR = np.array(cres['Transpi'][ix:, kenttarova_loc[0], kenttarova_loc[1]])  # transpi
+EF = np.array(cres['Efloor'][ix:, kenttarova_loc[0], kenttarova_loc[1]])  # floor evap
+IE = np.array(cres['Evap'][ix:, kenttarova_loc[0], kenttarova_loc[1]])# interception evap
+ET = TR + EF + IE
+
+P = np.array(FORC['Prec'][ix:-1])
+ax = []
+for i in range(len(P)):
+    if P[i] == 0:
+        if P[i-1] == 0:
+            ax.append(i) 
+
+dates = tvec[ix:-1]
+
+# ET at Kenttarova
+folder = r'C:\SpaFHy_v1_Pallas\data\obs'
+file = 'ec_kr_et.csv'
+fp = os.path.join(folder, file)
+ec_kr = pd.read_csv(fp, sep=';', date_parser=['time'])
+#ec_kr['time'] = pd.to_datetime(soilscout['time'])
+#ec_kr = ec_kr[(ec_kr['time'] >= dates[0]) & (ec_kr['time'] <= dates[-1])]
+ec_kr.index = ec_kr['time']
+ec_kr = ec_kr[['ET-2', 'ET-3']]
+
+
+ET_kr = pd.DataFrame()
+ET_kr['ET_sim'] = ET
+ET_kr['time'] = dates
+ET_kr.index = ET_kr['time']
+ET_kr = ET_kr[['ET_sim']]
+ET_kr['P'] = P
+ET_kr = ET_kr.iloc[ax]
+
+
+ec_kr = ET_kr.merge(ec_kr, left_index=True, right_index=True)
+ec_kr['ET-2'][ec_kr['ET-2'] < 0] = np.nan
+ec_kr['ET-3'][ec_kr['ET-3'] < 0] = np.nan
+ec_kr = ec_kr[(~np.isnan(ec_kr['ET-2']))]
+ec_kr = ec_kr[(~np.isnan(ec_kr['ET-3']))]
+
+## Plotting
+fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(8,8));
+ax1 = axs[0]
+ax2 = axs[1]
+
+l1 = ax1.plot(ec_kr['ET-2'], marker='', color='blue', linewidth=1, alpha=0.6)
+l2 = ax1.plot(ec_kr['ET_sim'], marker='', color='red', linewidth=1, alpha=0.3)
+#ax.fill_between(l1, l2, color='grey', alpha='0.5')
+#ax1.set_ylim(0,0.70)
+#ax1.set_ylabel('Volumetric water content')
+ax1.legend(['ET-2', 'ET_sim'], loc='upper right', ncol = 2)
+
+l3 = ax2.plot(ec_kr['ET-3'], marker='', color='blue', linewidth=1, alpha=0.6)
+l4 = ax2.plot(ec_kr['ET_sim'], marker='', color='red', linewidth=1, alpha=0.4)
+#ax.fill_between(l1, l2, color='grey', alpha='0.5')
+#ax1.set_ylim(0,0.70)
+#ax1.set_ylabel('Volumetric water content')
+ax2.legend(['ET-3', 'ET_sim'], loc='upper right', ncol = 2)
+
+
+#%%
+
+# ET scatterplot simulated vs. measured
+
+
 

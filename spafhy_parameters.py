@@ -19,9 +19,9 @@ def parameters():
             'runoff_file': r'C:\SpaFHy_v1_Pallas\data\obs\Runoffs1d_SVEcatchments_mmd.csv', #
             'ncf_file': r'C3.nc',
             'results_folder': r'C:\SpaFHy_v1_Pallas\Results',
-            'start_date': '2013-01-01',
+            'start_date': '2012-01-01',
             'end_date': '2019-12-31',
-            'spinup_end': '2013-12-31',
+            'spinup_end': '2012-12-31',
             'dt': 86400.0,
             'spatial_cpy': True,
             'spatial_soil': True     
@@ -141,7 +141,7 @@ def parameters():
     
     # TOPMODEL
     ptop = {'dt': 86400.0, # timestep (s)
-            'm': 0.023, # scaling depth (m)
+            'm': 0.025, # scaling depth (m)
             'ko': 0.001, # transmissivity parameter (ms-1)
             'twi_cutoff': 99.5,  # cutoff of cumulative twi distribution (%)
             'so': 0.05 # initial saturation deficit (m)
@@ -159,18 +159,31 @@ def soil_properties():
     psoil = {
              'FineTextured': 
                  {'airentry': 34.2,
-                  'alpha': 0.018,
+                  'alpha': 0.018, # van genuchten parameter
                   'beta': 7.9,
                   'fc': 0.34,
-                  'ksat': 1e-06,
-                  'n': 1.16,
-                  'poros': 0.5,
+                  'ksat': 1e-06, # saturated hydraulic conductivity
+                  'n': 1.16, # van genuchten parameter
+                  'poros': 0.5, # porosity (-)
                   'soil_id': 3.0,
-                  'wp': 0.25,
+                  'wp': 0.25, # wilting point (-)
                   'wr': 0.07,
                  },
 
              'MediumTextured': 
+                 {'airentry': 20.8,
+                  'alpha': 0.024,
+                  'beta': 4.7,
+                  'fc': 0.30,
+                  'ksat': 1e-05,
+                  'n': 1.2,
+                  'poros': 0.43,
+                  'soil_id': 2.0,
+                  'wp': 0.13,
+                  'wr': 0.05,
+                 },
+
+            'CoarseTextured':
                  {'airentry': 20.8,
                   'alpha': 0.024,
                   'beta': 4.7,
@@ -183,24 +196,11 @@ def soil_properties():
                   'wr': 0.05,
                  },
 
-            'CoarseTextured':
-                 {'airentry': 14.7,
-                  'alpha': 0.039,
-                  'beta': 3.1,
-                  'fc': 0.21,
-                  'ksat': 0.0001,
-                  'n': 1.4,
-                  'poros': 0.41,
-                  'soil_id': 1.0,
-                  'wp': 0.1,
-                  'wr': 0.05,
-                 },
-
              'Peat':
                  {'airentry': 29.2,
                   'alpha': 0.123,
                   'beta': 6.0,
-                  'fc': 0.414,
+                  'fc': 0.514,
                   'ksat': 5e-05,
                   'n': 1.28,
                   'poros': 0.9,
@@ -222,6 +222,44 @@ def soil_properties():
                  },
             }
     return psoil
+
+def topsoil():
+    """
+    Properties of typical topsoils
+    Following main site type (1-4) classification
+    """
+    topsoil = {
+        'mineral':{
+            'topsoil_id': 1,
+            'org_depth': 0.05,
+            'org_poros': 0.9,
+            'org_fc': 0.33,
+            'org_rw': 0.15
+            },
+        'fen':{
+            'topsoil_id': 2,
+            'org_depth': 0.05,
+            'org_poros': 0.9,   
+            'org_fc': 0.514,
+            'org_rw': 0.15
+            },
+        'peatland':{
+            'topsoil_id': 3,
+            'org_depth': 0.05,
+            'org_poros': 0.9,
+            'org_fc': 0.514,
+            'org_rw': 0.15
+            },
+        'openmire':{
+            'topsoil_id': 4,
+            'org_depth': 0.05,
+            'org_poros': 0.9,
+            'org_fc': 0.514,
+            'org_rw': 0.15
+            },
+        }
+    return topsoil
+
 
 def parameters_FIHy():
     # parameter file for running SpaFHy_point at FIHy-site
