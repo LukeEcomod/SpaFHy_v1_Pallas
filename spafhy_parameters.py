@@ -19,16 +19,16 @@ def parameters():
             'runoff_file': r'C:\SpaFHy_v1_Pallas\data\obs\Runoffs1d_SVEcatchments_mmd.csv', #
             'ncf_file': r'C3.nc',
             'results_folder': r'C:\SpaFHy_v1_Pallas\Results',
-            'start_date': '2012-01-01',
-            'end_date': '2019-12-31',
-            'spinup_end': '2012-12-31',
+            'start_date': '2016-01-01',
+            'end_date': '2019-10-01',
+            'spinup_end': '2016-05-01',
             'dt': 86400.0,
             'spatial_cpy': True,
             'spatial_soil': True     
            }
     
     # canopygrid
-    pcpy = {'loc': {'lat': 61.4, 'lon': 23.7},
+    pcpy = {'loc': {'lat': 67.995, 'lon': 24.224},
             'flow' : { # flow field
                      'zmeas': 2.0,
                      'zground': 0.5,
@@ -157,55 +157,52 @@ def soil_properties():
     n, alpha, Ksat, beta
     """
     psoil = {
+            'CoarseTextured':
+                 {'airentry': 20.8,
+                  'alpha': 0.024,
+                  'beta': 3.1,
+                  'fc': 0.21,
+                  'ksat': 1E-04,
+                  'n': 1.2,
+                  'poros': 0.41,
+                  'soil_id': 1.0,
+                  'wp': 0.10,
+                  'wr': 0.05,
+                 },
+             'MediumTextured': 
+                 {'airentry': 20.8,
+                  'alpha': 0.024,
+                  'beta': 4.7,
+                  'fc': 0.33,
+                  'ksat': 1E-05,
+                  'n': 1.2,
+                  'poros': 0.43,
+                  'soil_id': 2.0,
+                  'wp': 0.13,
+                  'wr': 0.05,
+                 },
              'FineTextured': 
                  {'airentry': 34.2,
                   'alpha': 0.018, # van genuchten parameter
                   'beta': 7.9,
                   'fc': 0.34,
-                  'ksat': 1e-06, # saturated hydraulic conductivity
+                  'ksat': 1E-06, # saturated hydraulic conductivity
                   'n': 1.16, # van genuchten parameter
                   'poros': 0.5, # porosity (-)
                   'soil_id': 3.0,
                   'wp': 0.25, # wilting point (-)
                   'wr': 0.07,
                  },
-
-             'MediumTextured': 
-                 {'airentry': 20.8,
-                  'alpha': 0.024,
-                  'beta': 4.7,
-                  'fc': 0.30,
-                  'ksat': 1e-05,
-                  'n': 1.2,
-                  'poros': 0.43,
-                  'soil_id': 2.0,
-                  'wp': 0.13,
-                  'wr': 0.05,
-                 },
-
-            'CoarseTextured':
-                 {'airentry': 20.8,
-                  'alpha': 0.024,
-                  'beta': 4.7,
-                  'fc': 0.33,
-                  'ksat': 1e-05,
-                  'n': 1.2,
-                  'poros': 0.43,
-                  'soil_id': 2.0,
-                  'wp': 0.13,
-                  'wr': 0.05,
-                 },
-
              'Peat':
                  {'airentry': 29.2,
-                  'alpha': 0.123,
+                  'alpha': 0.08, # Menbery et al. 2021
                   'beta': 6.0,
-                  'fc': 0.514,
-                  'ksat': 5e-05,
-                  'n': 1.28,
-                  'poros': 0.9,
+                  'fc': 0.53, # Menbery et al. 2021
+                  'ksat': 6e-05, # Menbery et al. 2021
+                  'n': 1.75, # Menbery et al. 2021
+                  'poros': 0.93, # Menbery et al. 2021
                   'soil_id': 4.0,
-                  'wp': 0.11,
+                  'wp': 0.36, # Menbery et al. 2021
                   'wr': 0.0,
                  },
               'Humus':
@@ -239,7 +236,7 @@ def topsoil():
         'fen':{
             'topsoil_id': 2,
             'org_depth': 0.05,
-            'org_poros': 0.9,   
+            'org_poros': 0.9,
             'org_fc': 0.514,
             'org_rw': 0.15
             },
@@ -256,7 +253,7 @@ def topsoil():
             'org_poros': 0.9,
             'org_fc': 0.514,
             'org_rw': 0.15
-            },
+            }
         }
     return topsoil
 

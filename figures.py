@@ -48,6 +48,7 @@ with open(pk_file, 'rb') as ff:
 # get time-index when results start
 ix = 1 + np.where(FORC.index == spa.pgen['spinup_end'])[0][0]
 tvec = FORC.index # date vector
+tvec0 = tvec[1:]
 
 
 gis = spa.GisData
