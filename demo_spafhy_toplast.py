@@ -23,7 +23,7 @@ import pickle
 #from datetime import datetime
 
 # import spafhy components
-import spafhy
+import spafhy_toplast as spafhy
 from spafhy_parameters import soil_properties, parameters, topsoil
 from spafhy_io import read_catchment_data, read_FMI_weather, read_SVE_runoff
 

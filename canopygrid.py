@@ -51,7 +51,8 @@ class CanopyGrid():
         
         # canopy parameters and state
         self.hc = state['hc'] + epsi
-        self.cf = state['cf'] + epsi
+        self.cf = state['cf'] + epsi #!!! canopy fraction does not work from state, gives only 0.61 everywhere
+        #self.cf = self.cf * 0 + eps
         
         #self.cf = 0.1939 * ba / (0.1939 * ba + 1.69) + epsi
         # canopy closure [-] as function of basal area ba m2ha-1;
@@ -170,7 +171,7 @@ class CanopyGrid():
                                                   zg=self.zground, zos=self.zo_ground)
 
         """ --- interception, evaporation and snowpack --- """
-        PotInf, Trfall, Evap, Interc, MBE, unload = self.canopy_water_snow(dt, Ta, Prec,
+        PotInf, Trfall, Evap, Interc, MBE, unload, W = self.canopy_water_snow(dt, Ta, Prec,
                                                                            Rn, VPD, Ra=Ra)
 
         """--- dry-canopy evapotranspiration [mm s-1] --- """
@@ -180,6 +181,11 @@ class CanopyGrid():
         Transpi = Transpi * dt
         Efloor = Efloor * dt
         ET = Transpi + Efloor + Evap
+        fPheno = self.fPheno
+        fLAI = self.LAI
+        cf = self.cf      
+        #print(np.unique(fLAI))
+        #print(np.unique(self.hc))
 
         # append results to lists; use only for testing small grids!
         if hasattr(self, 'results'):
@@ -196,7 +202,7 @@ class CanopyGrid():
             self.results['LAIfract'].append(self._relative_lai)
             self.results['Unload'].append(unload)
 
-        return PotInf, Trfall, Interc, Evap, ET, Transpi, Efloor, MBE
+        return PotInf, Trfall, Interc, Evap, ET, Transpi, Efloor, MBE, fPheno, fLAI, W, cf
 
     def update_daily(self, T, doy):
         """
@@ -337,7 +343,7 @@ class CanopyGrid():
         # ---Amax and g1 as LAI -weighted average of conifers and decid.
 
         rhoa = 101300.0 / (8.31 * (Ta + 273.15)) # mol m-3
-        
+        #print('fPheno', fPheno)
         Amax = self.physpara['Amax']
         g1 = self.physpara['g1']
         kp = self.physpara['kp']  # (-) attenuation coefficient for PAR
@@ -365,11 +371,12 @@ class CanopyGrid():
         fCO2 = 1.0 - 0.387 * np.log(CO2 / 380.0)
         
         # leaf level light-saturated gs (m/s)
-        gs = 1.6*(1.0 + g1 / np.sqrt(D)) * Amax / CO2 / rhoa
+        #gs = 1.6*(1.0 + g1 / np.sqrt(D)) * Amax / CO2 / rhoa
+        gs = np.minimum(1.6*(1.0 + g1 / np.sqrt(D))*Amax / 380. / rhoa, 0.1)  # large values if D -> 0
         
         # canopy conductance
         Gc = gs * fQ * fRew * fCO2 * fPheno
-        Gc[Gc == 0] = eps
+        #Gc[Gc == 0] = eps
         Gc[np.isnan(Gc)] = eps
 
         """ --- transpiration rate --- """
@@ -463,9 +470,9 @@ class CanopyGrid():
                                                      Ga[ixs], units='W')
 
         # evaporation of intercepted water, mm
-        gs = 1e6
+        gs = np.ones(gridshape) * 1e6
         erate[ixr] = dt / Lv[ixr] * penman_monteith((1.0 - tau[ixr])*AE[ixr],
-                                                     1e3*D[ixr], T[ixr], gs,
+                                                     1e3*D[ixr], T[ixr], gs[ixr],
                                                      Ga[ixr], units='W')
 
         # ---state of precipitation [as water (fW) or as snow(fS)]
@@ -486,6 +493,7 @@ class CanopyGrid():
         Melt = np.zeros(gridshape)   # melting
         Freeze = np.zeros(gridshape)  # freezing
         Evap = np.zeros(gridshape)
+        Melt_Freeze = np.zeros(gridshape)
 
         """ --- initial conditions for calculating mass balance error --"""
         Wo = self.W  # canopy storage
@@ -522,6 +530,7 @@ class CanopyGrid():
         self.W = self.W - Evap
 
         """ Snowpack (in case no snow, all Trfall routed to floor) """
+        '''
         ix = np.where(T >= Tmelt)
         Melt[ix] = np.minimum(self.SWEi[ix], Kmelt[ix] * dt * (T[ix] - Tmelt))  # mm
         del ix
@@ -540,11 +549,30 @@ class CanopyGrid():
         self.SWEl = Sliq
         self.SWEi = Sice
         self.SWE = self.SWEl + self.SWEi
+        '''
+        # melting positive, freezing negative
+        Melt_Freeze = np.where(T >= Tmelt,
+                np.minimum(self.SWEi, Kmelt * dt * (T - Tmelt)),
+                -np.minimum(self.SWEl, Kfreeze * dt * (Tmelt - T)))
+
+        # amount of water as ice and liquid in snowpack
+        Sice = np.maximum(0.0, self.SWEi + fS * Trfall - Melt_Freeze)
+        Sliq = np.maximum(0.0, self.SWEl + fW * Trfall + Melt_Freeze)
+
+        PotInf = np.maximum(0.0, Sliq - Sice * self.R)  # mm
+        Sliq = np.maximum(0.0, Sliq - PotInf)  # mm, liquid water in snow
+
+        # update Snowpack state variables
+        self.SWEl = Sliq
+        self.SWEi = Sice
+        self.SWE = self.SWEl + self.SWEi
         
         # mass-balance error mm
         MBE = (self.W + self.SWE) - (Wo + SWEo) - (Prec - Evap - PotInf)
+        
+        W = self.W
 
-        return PotInf, Trfall, Evap, Interc, MBE, Unload
+        return PotInf, Trfall, Evap, Interc, MBE, Unload, W
     
     
     def canopy_water_snow_energy(self, dt, T, Prec, AE, D, Rg, RH, Ra=25.0, U=2.0):
@@ -773,7 +801,7 @@ class CanopyGrid():
         
         # Sensible heat exchange in the snowpack ...snow temperature from previous timestep is taken as input
         # resistance to heat transfer (Walter et al 2005)
-        ras = ((ln((self.zmeas - ds + zms) / zms) * ln((self.zmeas - ds + zhs) / zhs)) / (k**2 * WS)) / dt
+        ras = ((np.log((self.zmeas - ds + zms) / zms) * np.log((self.zmeas - ds + zhs) / zhs)) / (k**2 * WS)) / dt
         
         # Sensible heat transfer by turbulent convection [MJ/d*m2] 
         Qs = cair * (T - self.Tsnow) / ras   

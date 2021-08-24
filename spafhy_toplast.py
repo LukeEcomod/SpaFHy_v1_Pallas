@@ -225,28 +225,24 @@ class SpaFHy():
         u = forc['U'] + eps
         rh = forc['RH']
 
-        # run Topmodel
-        # catchment average ground water recharge [m per unit area]
-        RR = self.bu._drainage_to_gw * self.top.CellArea / self.top.CatchmentArea
-        qb, _, qr, fsat = self.top.run_timestep(RR)
 
-        '''
-        # for energy snow
-        # run CanopyGrid 
-        potinf, trfall, interc, evap, et, transpi, efloor, mbe = \
-            self.cpy.run_timestep(doy, self.dt, ta, prec, rg, rh, par, vpd, U=u, CO2=co2,
-                                  beta=self.bu.Ree, Rew=self.bu.Rew, P=101300.0)
-        '''    
         # for degreeday snow    
         # run CanopyGrid
-        potinf, trfall, interc, evap, et, transpi, efloor, mbe, fPheno, fLAI, WC, cf = \
+        potinf, trfall, interc, evap, et, transpi, efloor, mbe, fPheno, fLAI = \
             self.cpy.run_timestep(doy, self.dt, ta, prec, rg, par, vpd, U=u, CO2=co2,
                                   beta=self.bu.Ree, Rew=self.bu.Rew, P=101300.0)           
         #'''    
 
         # run BucketGrid water balance
+        qr = self.top.qr
         infi, roff, drain, tr, eva, mbes = self.bu.watbal(dt=self.dt, rr=1e-3*potinf, tr=1e-3*transpi,
                                                        evap=1e-3*efloor, retflow=qr)
+        
+        # run Topmodel
+        # catchment average ground water recharge [m per unit area]
+        RR = self.bu._drainage_to_gw * self.top.CellArea / self.top.CatchmentArea
+        qb, _, qr, fsat = self.top.run_timestep(RR)
+        
 
         # catchment average [m per unit area] saturation excess --> goes to stream
         # as surface runoff
@@ -278,8 +274,6 @@ class SpaFHy():
             ncf['cpy']['Mbe'][k,:,:] = self._to_grid(mbe)         
             ncf['cpy']['fPheno'][k,:,:] = self._to_grid(fPheno)              
             ncf['cpy']['fLAI'][k,:,:] = self._to_grid(fLAI)              
-            ncf['cpy']['WC'][k,:,:] = self._to_grid(WC)              
-            ncf['cpy']['cf'][k,:,:] = self._to_grid(cf)              
 
 
             # bucketgrid
@@ -419,10 +413,6 @@ def initialize_netCDF(ID, fname, lat0, lon0, dlat, dlon, dtime=None):
     fPheno.units = 'Pheno state'
     fLAI = ncf.createVariable('/cpy/fLAI', 'f4', ('dtime', 'dlat', 'dlon',))
     fLAI.units = 'fLAI state'
-    WC = ncf.createVariable('/cpy/WC', 'f4', ('dtime', 'dlat', 'dlon',))
-    WC.units = 'Canopy storage'
-    cf = ncf.createVariable('/cpy/cf', 'f4', ('dtime', 'dlat', 'dlon',))
-    cf.units = 'Canopy fraction'
     
     # BucketGrid outputs
     Wliq = ncf.createVariable('/bu/Wliq', 'f4', ('dtime', 'dlat', 'dlon',))

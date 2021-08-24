@@ -448,8 +448,8 @@ def read_catchment_data(ID, fpath, plotgrids=False, plotdistr=False):
            'twi': twi, 'soilclass': soilclass, 'sitetype': sitetype, 'stream': stream,
            'LAI_pine': LAI_pine, 'LAI_spruce': LAI_spruce,
            'LAI_conif': LAI_pine + LAI_spruce,
-           'LAI_decid': LAI_decid, 'LAI_shrub': LAI_shrub, 'LAI_grass': LAI_grass, 'hc': hc,
-           'cf': cf, 'cellsize': cellsize,
+           'LAI_decid': LAI_decid + LAI_shrub + LAI_grass, #'LAI_shrub': LAI_shrub, 'LAI_grass': LAI_grass, 
+           'hc': hc, 'cf': cf, 'cellsize': cellsize,
            'info': info, 'lat0': lat0, 'lon0': lon0, 'loc': loc
            }
 

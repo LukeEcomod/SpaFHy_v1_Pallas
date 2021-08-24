@@ -21,6 +21,7 @@ def parameters():
             'results_folder': r'C:\SpaFHy_v1_Pallas\Results',
             'start_date': '2016-01-01',
             'end_date': '2019-10-01',
+            #'end_date': '2016-07-01',
             'spinup_end': '2016-05-01',
             'dt': 86400.0,
             'spatial_cpy': True,

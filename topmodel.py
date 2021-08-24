@@ -85,6 +85,7 @@ class Topmodel_Homogenous():
         s = self.local_s(S_initial)
         s[s < 0] = 0.0
         self.S = np.nanmean(s)
+        self.qr = -s
 
         # create dictionary of empty lists for saving results
         if outputs:
@@ -130,11 +131,11 @@ class Topmodel_Homogenous():
         s = self.local_s(S)
 
         # returnflow grid
-        qr = -s
-        qr[qr < 0] = 0.0  # returnflow grid, m
+        self.qr = -s
+        self.qr[self.qr < 0] = 0.0  # returnflow grid, m
         
         # average returnflow per unit area
-        Qr = np.nansum(qr)*self.CellArea / self.CatchmentArea
+        Qr = np.nansum(self.qr)*self.CellArea / self.CatchmentArea
 
         # now all saturation excess is in Qr so update s and S. 
         # Deficit increases when Qr is removed 
@@ -146,6 +147,8 @@ class Topmodel_Homogenous():
         # fsat = np.max(np.shape(ix))*self.CellArea / self.CatchmentArea
         fsat = len(ix[0])*self.CellArea / self.CatchmentArea
         del ix
+        
+        qr = self.qr
         
         # check mass balance
         dS = (So - self.S)
