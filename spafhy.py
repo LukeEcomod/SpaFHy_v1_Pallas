@@ -117,10 +117,13 @@ def initialize(pgen, pcpy, pbu, ptop, psoil, topsoil, gisdata, ncf=True,
     for key in cstate.keys():
         if 'LAI_' in key: # reads gisdata LAI-layers to cstate
             cstate[key] = gisdata[key]
-            
+        elif key in gisdata.keys():
+            cstate[key] = gisdata[key]
         cstate[key] *= gisdata['cmask']
 
     pcpy['state'] = cstate
+    
+
     del cstate
     
     if ncf:

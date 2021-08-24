@@ -379,7 +379,7 @@ def read_catchment_data(ID, fpath, plotgrids=False, plotdistr=False):
     stream[np.isfinite(stream)] = 1.0
     
     # soil classificication: 1=coarse, 2=medium, 3=fine, 4=peat -1=water
-    soilclass, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'soilclass.dat'))
+    soilclass, _, _, _, _ = read_AsciiGrid(os.path.join(fpath, 'soil_id_peatsoils.dat'))
 
 
     try:

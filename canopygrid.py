@@ -50,8 +50,10 @@ class CanopyGrid():
         self.phenopara = cpara['phenopara']
         
         # canopy parameters and state
-        self.hc = state['hc'] + epsi
-        self.cf = state['cf'] + epsi #!!! canopy fraction does not work from state, gives only 0.61 everywhere
+        self.hc = state['hc'] + eps
+        self.cf = state['cf'] + eps
+        #print(np.unique(self.cf))
+        #print(self.cf.shape)
         #self.cf = self.cf * 0 + eps
         
         #self.cf = 0.1939 * ba / (0.1939 * ba + 1.69) + epsi
@@ -376,7 +378,7 @@ class CanopyGrid():
         
         # canopy conductance
         Gc = gs * fQ * fRew * fCO2 * fPheno
-        #Gc[Gc == 0] = eps
+        Gc[Gc == 0] = eps
         Gc[np.isnan(Gc)] = eps
 
         """ --- transpiration rate --- """

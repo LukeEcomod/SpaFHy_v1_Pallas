@@ -53,7 +53,6 @@ with open(pk_file, 'rb') as ff:
 ix = 1 + np.where(FORC.index == spa.pgen['spinup_end'])[0][0]
 tvec = FORC.index # date vector
 
-
 gis = spa.GisData
 twi = gis['twi']
 LAIc = gis['LAI_conif']
